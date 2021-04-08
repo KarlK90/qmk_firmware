@@ -1,22 +1,14 @@
-/* Copyright 2021 QMK
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
-#include "serial_usart.h"
-
 #include <stdatomic.h>
+#include "quantum.h"
+#include "serial.h"
+#include "printf.h"
+
+#include "ch.h"
+#include "hal.h"
+
+#if !defined(USART_CR1_M0)
+#    define USART_CR1_M0 USART_CR1_M  // some platforms (f1xx) dont have this so
+#endif
 
 #if !defined(USE_GPIOV1)
 // The default PAL alternate modes are used to signal that the pins are used for USART
@@ -32,6 +24,18 @@
 #    define SERIAL_USART_DRIVER UARTD1
 #endif
 
+#if !defined(SERIAL_USART_CR1)
+#    define SERIAL_USART_CR1 (USART_CR1_PCE | USART_CR1_PS | USART_CR1_M0)  // parity enable, odd parity, 9 bit length
+#endif
+
+#if !defined(SERIAL_USART_CR2)
+#    define SERIAL_USART_CR2 (USART_CR2_STOP_1)  // 2 stop bits
+#endif
+
+#if !defined(SERIAL_USART_CR3)
+#    define SERIAL_USART_CR3 0x0
+#endif
+
 #if !defined(SERIAL_USART_TX_PIN)
 #    define SERIAL_USART_TX_PIN A9
 #endif
@@ -40,6 +44,43 @@
 #    define SERIAL_USART_RX_PIN A10
 #endif
 
+#if defined(USART1_REMAP)
+#    define USART_REMAP (AFIO->MAPR |= AFIO_MAPR_USART1_REMAP);
+#elif defined(USART2_REMAP)
+#    define USART_REMAP (AFIO->MAPR |= AFIO_MAPR_USART2_REMAP);
+#elif defined(USART3_PARTIALREMAP)
+#    define USART_REMAP (AFIO->MAPR |= AFIO_MAPR_USART3_REMAP_PARTIALREMAP);
+#elif defined(USART3_FULLREMAP)
+#    define USART_REMAP (AFIO->MAPR |= AFIO_MAPR_USART3_REMAP_FULLREMAP);
+#endif
+
+#if !defined(SELECT_SERIAL_SPEED)
+#    define SELECT_SERIAL_SPEED 1
+#endif
+
+#if defined(SERIAL_USART_SPEED)
+// Allow advanced users to directly set SERIAL_USART_SPEED
+#elif SERIAL_SPEED == 0
+#    define SERIAL_USART_SPEED 460800
+#elif SERIAL_SPEED == 1
+#    define SERIAL_USART_SPEED 230400
+#elif SERIAL_SPEED == 2
+#    define SERIAL_USART_SPEED 115200
+#elif SERIAL_SPEED == 3
+#    define SERIAL_USART_SPEED 57600
+#elif SERIAL_SPEED == 4
+#    define SERIAL_USART_SPEED 38400
+#elif SERIAL_SPEED == 5
+#    define SERIAL_USART_SPEED 19200
+#else
+#    error invalid SERIAL_SPEED value
+#endif
+
+#if !defined(SERIAL_USART_TIMEOUT)
+#    define SERIAL_USART_TIMEOUT 100
+#endif
+
+#define HANDSHAKE_MAGIC 7
 #define SIGNAL_HANDSHAKE_RECEIVED 0x1
 
 void        handle_transactions_slave(uint8_t sstd_index);
@@ -47,14 +88,14 @@ static void receive_transaction_handshake(UARTDriver* uartp, uint16_t received_h
 
 /*
  * UART driver configuration structure. We use the blocking DMA enabled API and
- * the rxchar callback to receive handshake tokens but only on the slave halve.
+ * the rxchar callback to receive handshake tokens.
  */
 // clang-format off
 static UARTConfig uart_config = {
     .txend1_cb = NULL,
     .txend2_cb = NULL,
     .rxend_cb = NULL,
-    .rxchar_cb = NULL,
+    .rxchar_cb = receive_transaction_handshake,
     .rxerr_cb = NULL,
     .timeout_cb = NULL,
     .speed = (SERIAL_USART_SPEED),
@@ -64,10 +105,10 @@ static UARTConfig uart_config = {
 };
 // clang-format on
 
-static SSTD_t*              Transaction_table      = NULL;
-static uint8_t              Transaction_table_size = 0;
-static atomic_uint_least8_t handshake              = 0xFF;
-static thread_reference_t   tp_target              = NULL;
+static SSTD_t*                       Transaction_table      = NULL;
+static uint8_t                       Transaction_table_size = 0;
+static volatile atomic_uint_least8_t handshake              = 0xFF;
+static thread_reference_t            tp_target              = NULL;
 
 /*
  * This callback is invoked when a character is received but the application
@@ -103,7 +144,7 @@ __attribute__((weak)) void usart_init(void) {
 /*
  * This thread runs on the slave half and reacts to transactions initiated from the master.
  */
-static THD_WORKING_AREA(waSlaveThread, 1024);
+static THD_WORKING_AREA(waSlaveThread, 512);
 static THD_FUNCTION(SlaveThread, arg) {
     (void)arg;
     chRegSetThreadName("slave_usart_tx_rx");
@@ -120,15 +161,16 @@ void soft_serial_target_init(SSTD_t* const sstd_table, int sstd_table_size) {
     Transaction_table_size = (uint8_t)sstd_table_size;
     usart_init();
 
-#if defined(USART_REMAP)
-    USART_REMAP;
+#if defined(SERIAL_USART_PIN_SWAP)
+    uart_config.cr2 |= ~USART_CR2_SWAP;  // slave has non-swapped TX/RX pins
 #endif
 
-    tp_target = chThdCreateStatic(waSlaveThread, sizeof(waSlaveThread), HIGHPRIO, SlaveThread, NULL);
+#if defined(USART_REMAP)
+    USART_REMAP
+#endif
 
-    // Start receiving handshake tokens on slave halve
-    uart_config.rxchar_cb = receive_transaction_handshake;
     uartStart(&SERIAL_USART_DRIVER, &uart_config);
+    tp_target = chThdCreateStatic(waSlaveThread, sizeof(waSlaveThread), HIGHPRIO, SlaveThread, NULL);
 }
 
 /**
@@ -188,11 +230,11 @@ void soft_serial_initiator_init(SSTD_t* const sstd_table, int sstd_table_size) {
     usart_init();
 
 #if defined(SERIAL_USART_PIN_SWAP)
-    uart_config.cr2 |= USART_CR2_SWAP;  // master has swapped TX/RX pins
+    uart_config.cr2 |= ~USART_CR2_SWAP;  // master has non-swapped TX/RX pins
 #endif
 
 #if defined(USART_REMAP)
-    USART_REMAP;
+    USART_REMAP
 #endif
 
     uartStart(&SERIAL_USART_DRIVER, &uart_config);
