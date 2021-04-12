@@ -105,8 +105,6 @@ static UARTConfig uart_config = {
 };
 // clang-format on
 
-static SSTD_t*                       Transaction_table      = NULL;
-static uint8_t                       Transaction_table_size = 0;
 static volatile atomic_uint_least8_t handshake              = 0xFF;
 static thread_reference_t            tp_target              = NULL;
 
@@ -120,7 +118,7 @@ static void receive_transaction_handshake(UARTDriver* uartp, uint16_t received_h
      * i.e. a byte from a ongoing transfer which is in the allowed range.
      * So this check mainly prevents any obviously wrong handshakes and
      * subsequent wakeups of the receiving thread, which is a costly operation. */
-    if (received_handshake > Transaction_table_size) {
+    if (received_handshake > NUM_TOTAL_TRANSACTIONS) {
         return;
     }
 
@@ -144,7 +142,7 @@ __attribute__((weak)) void usart_init(void) {
 /*
  * This thread runs on the slave half and reacts to transactions initiated from the master.
  */
-static THD_WORKING_AREA(waSlaveThread, 512);
+static THD_WORKING_AREA(waSlaveThread, 2048);
 static THD_FUNCTION(SlaveThread, arg) {
     (void)arg;
     chRegSetThreadName("slave_usart_tx_rx");
@@ -156,9 +154,7 @@ static THD_FUNCTION(SlaveThread, arg) {
     }
 }
 
-void soft_serial_target_init(SSTD_t* const sstd_table, int sstd_table_size) {
-    Transaction_table      = sstd_table;
-    Transaction_table_size = (uint8_t)sstd_table_size;
+void soft_serial_target_init(void) {
     usart_init();
 
 #if defined(SERIAL_USART_PIN_SWAP)
@@ -180,7 +176,7 @@ void soft_serial_target_init(SSTD_t* const sstd_table, int sstd_table_size) {
 void inline handle_transactions_slave(uint8_t sstd_index) {
     size_t  buffer_size = 0;
     msg_t   msg         = 0;
-    SSTD_t* trans       = &Transaction_table[sstd_index];
+    split_transaction_desc_t* trans       = &split_transaction_table[sstd_index];
 
     /* Send back the handshake which is XORed as a simple checksum,
      to signal that the slave is ready to receive possible transaction buffers  */
@@ -198,7 +194,7 @@ void inline handle_transactions_slave(uint8_t sstd_index) {
     /* Receive transaction buffer from the master. If this transaction requires it.*/
     buffer_size = (size_t)trans->initiator2target_buffer_size;
     if (buffer_size) {
-        msg = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, trans->initiator2target_buffer, TIME_MS2I(SERIAL_USART_TIMEOUT));
+        msg = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_initiator2target_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
             if (trans->status) {
                 *trans->status = TRANSACTION_NO_RESPONSE;
@@ -207,10 +203,15 @@ void inline handle_transactions_slave(uint8_t sstd_index) {
         }
     }
 
+    // Allow any slave processing to occur
+    if (trans->slave_callback) {
+        trans->slave_callback(trans->initiator2target_buffer_size, split_trans_initiator2target_buffer(trans), trans->target2initiator_buffer_size, split_trans_target2initiator_buffer(trans));
+    }
+
     /* Send transaction buffer to the master. If this transaction requires it. */
     buffer_size = (size_t)trans->target2initiator_buffer_size;
     if (buffer_size) {
-        msg = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, trans->target2initiator_buffer, TIME_MS2I(SERIAL_USART_TIMEOUT));
+        msg = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_target2initiator_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
             if (trans->status) {
                 *trans->status = TRANSACTION_NO_RESPONSE;
@@ -224,9 +225,7 @@ void inline handle_transactions_slave(uint8_t sstd_index) {
     }
 }
 
-void soft_serial_initiator_init(SSTD_t* const sstd_table, int sstd_table_size) {
-    Transaction_table      = sstd_table;
-    Transaction_table_size = (uint8_t)sstd_table_size;
+void soft_serial_initiator_init(void) {
     usart_init();
 
 #if defined(SERIAL_USART_PIN_SWAP)
@@ -249,19 +248,14 @@ void soft_serial_initiator_init(SSTD_t* const sstd_table, int sstd_table_size) {
  *             TRANSACTION_TYPE_ERROR in case of invalid transaction index.
  *             TRANSACTION_END in case of success.
  */
-#if !defined(SERIAL_USE_MULTI_TRANSACTION)
-int soft_serial_transaction(void) {
-    uint8_t sstd_index = 0;
-#else
 int soft_serial_transaction(int index) {
     uint8_t sstd_index = index;
-#endif
 
-    if (sstd_index > Transaction_table_size) {
+    if (sstd_index > NUM_TOTAL_TRANSACTIONS) {
         return TRANSACTION_TYPE_ERROR;
     }
 
-    SSTD_t* const trans       = &Transaction_table[sstd_index];
+    split_transaction_desc_t* const trans       = &split_transaction_table[sstd_index];
     msg_t         msg         = 0;
     size_t        buffer_size = (size_t)sizeof(sstd_index);
 
@@ -282,7 +276,7 @@ int soft_serial_transaction(int index) {
     /* Send transaction buffer to the slave. If this transaction requires it. */
     buffer_size = (size_t)trans->initiator2target_buffer_size;
     if (buffer_size) {
-        msg = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, trans->initiator2target_buffer, TIME_MS2I(SERIAL_USART_TIMEOUT));
+        msg = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_initiator2target_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
             dprintln("USART: Send Failed");
             return TRANSACTION_NO_RESPONSE;
@@ -292,7 +286,7 @@ int soft_serial_transaction(int index) {
     /* Receive transaction buffer from the slave. If this transaction requires it. */
     buffer_size = (size_t)trans->target2initiator_buffer_size;
     if (buffer_size) {
-        msg = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, trans->target2initiator_buffer, TIME_MS2I(SERIAL_USART_TIMEOUT));
+        msg = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_target2initiator_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
             dprintln("USART: Receive Failed");
             return TRANSACTION_NO_RESPONSE;
