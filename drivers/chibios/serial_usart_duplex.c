@@ -95,7 +95,7 @@ static UARTConfig uart_config = {
     .txend1_cb = NULL,
     .txend2_cb = NULL,
     .rxend_cb = NULL,
-    .rxchar_cb = receive_transaction_handshake,
+    .rxchar_cb = NULL,
     .rxerr_cb = NULL,
     .timeout_cb = NULL,
     .speed = (SERIAL_USART_SPEED),
@@ -105,8 +105,8 @@ static UARTConfig uart_config = {
 };
 // clang-format on
 
-static volatile atomic_uint_least8_t handshake              = 0xFF;
-static thread_reference_t            tp_target              = NULL;
+static atomic_uint_least8_t handshake = ~0;
+static thread_reference_t   tp_target = NULL;
 
 /*
  * This callback is invoked when a character is received but the application
@@ -122,7 +122,8 @@ static void receive_transaction_handshake(UARTDriver* uartp, uint16_t received_h
         return;
     }
 
-    handshake = (uint8_t)received_handshake;
+    handshake = received_handshake;
+
     chSysLockFromISR();
     /* Wakeup receiving thread to start a transaction. */
     chEvtSignalI(tp_target, (eventmask_t)SIGNAL_HANDSHAKE_RECEIVED);
@@ -165,8 +166,10 @@ void soft_serial_target_init(void) {
     USART_REMAP
 #endif
 
-    uartStart(&SERIAL_USART_DRIVER, &uart_config);
     tp_target = chThdCreateStatic(waSlaveThread, sizeof(waSlaveThread), HIGHPRIO, SlaveThread, NULL);
+
+    uart_config.rxchar_cb = receive_transaction_handshake;
+    uartStart(&SERIAL_USART_DRIVER, &uart_config);
 }
 
 /**
@@ -174,8 +177,8 @@ void soft_serial_target_init(void) {
  * This version uses duplex send and receive usart pheriphals and DMA backed transfers.
  */
 void inline handle_transactions_slave(uint8_t sstd_index) {
-    size_t  buffer_size = 0;
-    msg_t   msg         = 0;
+    size_t                    buffer_size = 0;
+    msg_t                     msg         = 0;
     split_transaction_desc_t* trans       = &split_transaction_table[sstd_index];
 
     /* Send back the handshake which is XORed as a simple checksum,
@@ -256,8 +259,8 @@ int soft_serial_transaction(int index) {
     }
 
     split_transaction_desc_t* const trans       = &split_transaction_table[sstd_index];
-    msg_t         msg         = 0;
-    size_t        buffer_size = (size_t)sizeof(sstd_index);
+    msg_t                           msg         = 0;
+    size_t                          buffer_size = (size_t)sizeof(sstd_index);
 
     /* Send transaction table index to the slave, which doubles as basic handshake token. */
     uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, &sstd_index, TIME_MS2I(SERIAL_USART_TIMEOUT));
