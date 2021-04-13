@@ -7,6 +7,11 @@ enum Layers {
     _GAME = 3,
 };
 
+enum Encoder {
+    _ENCODER_LEFT  = 0,
+    _ENCODER_RIGHT = 1,
+};
+
 // clang-format off
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -53,9 +58,6 @@ void encoder_update_user(uint8_t index, bool clockwise) {
                 default:
                     tap_code(KC_MS_WH_DOWN);
                     break;
-                case _NAV:
-                    tap_code(KC_MS_WH_RIGHT);
-                    break;
                 case _FN:
                     tap_code_delay(KC_AUDIO_VOL_UP, 10);
                     break;
@@ -68,9 +70,6 @@ void encoder_update_user(uint8_t index, bool clockwise) {
                 case _BASE:
                 default:
                     tap_code(KC_MS_WH_UP);
-                    break;
-                case _NAV:
-                    tap_code(KC_MS_WH_LEFT);
                     break;
                 case _FN:
                     tap_code_delay(KC_AUDIO_VOL_DOWN, 10);
@@ -87,9 +86,6 @@ void encoder_update_user(uint8_t index, bool clockwise) {
                 default:
                     tap_code(KC_MS_WH_DOWN);
                     break;
-                case _NAV:
-                    tap_code(KC_MS_WH_RIGHT);
-                    break;
                 case _FN:
                     tap_code_delay(KC_MEDIA_NEXT_TRACK, 10);
                     break;
@@ -102,9 +98,6 @@ void encoder_update_user(uint8_t index, bool clockwise) {
                 case _BASE:
                 default:
                     tap_code(KC_MS_WH_UP);
-                    break;
-                case _NAV:
-                    tap_code(KC_MS_WH_LEFT);
                     break;
                 case _FN:
                     tap_code_delay(KC_MEDIA_PREV_TRACK, 10);
