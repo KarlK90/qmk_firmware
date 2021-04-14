@@ -1,16 +1,16 @@
 # Choose to use RISC-V or ARM MCU
-RISC-V = yes
+RISC-V = no
 
 ifeq ($(strip $(RISC-V)), yes)
-      MCU                =   GD32VF103
-      BOARD              =   SIPEED_LONGAN_NANO
-      LTO_ENABLE         =   no
-      EXTRAFLAGS         += -Os
+    MCU                =   GD32VF103
+    BOARD              =   SIPEED_LONGAN_NANO
+    LTO_ENABLE         =   no
+    EXTRAFLAGS         += -Os
     # Default clock is 96MHz, 120MHz is out of spec but possible.
     # OPT_DEFS           += -DOVERCLOCK_120MHZ
 else
     MCU        =   STM32F303
-    BOARD      =   QMK_PROTON_C
+    BOARD      =   GENERIC_STM32_F303XC
     LTO_ENABLE =   yes
     EXTRAFLAGS += -Os
 endif
