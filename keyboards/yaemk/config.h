@@ -10,12 +10,15 @@
 #define PRODUCT_ID 0x5941  // YA
 #define DEVICE_VER 0x0003
 #define MANUFACTURER KARLK90
+
+// clang-format off
 #if defined(__riscv)
 #    define PRODUCT YAEMK 1.2 RISC-V
 #elif defined(__arm__)
 #    define PRODUCT YAEMK 1.2 ARM
 #endif
 #define DESCRIPTION Split Keyboard
+// clang-format on
 
 /* MATRIX CONFIG */
 #define MATRIX_ROWS 10
@@ -106,7 +109,7 @@
 #define EEPROM_I2C_CAT24C512
 
 #if defined(__riscv)
-#    define I2C1_CLOCK_SPEED 400000  // 1000000 Fast mode plus supported, but disabled by default.
+#    define I2C1_CLOCK_SPEED 1000000
 #    define I2C1_DUTY_CYCLE FAST_DUTY_CYCLE_2
 #endif
 
