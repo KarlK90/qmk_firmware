@@ -67,9 +67,9 @@ ifeq ("$(PLATFORM_NAME)","")
     PLATFORM_NAME = platform
 endif
 
-PLATFORM_MK = $(CHIBIOS)/os/hal/ports/$(MCU_FAMILY)/$(MCU_SERIES)/$(PLATFORM_NAME).mk
-ifeq ("$(wildcard $(PLATFORM_MK))","")
 PLATFORM_MK = $(CHIBIOS_CONTRIB)/os/hal/ports/$(MCU_FAMILY)/$(MCU_SERIES)/$(PLATFORM_NAME).mk
+ifeq ("$(wildcard $(PLATFORM_MK))","")
+    PLATFORM_MK = $(CHIBIOS)/os/hal/ports/$(MCU_FAMILY)/$(MCU_SERIES)/$(PLATFORM_NAME).mk
 endif
 
 include $(STARTUP_MK)
@@ -259,22 +259,28 @@ EXTRAINCDIRS += $(CHIBIOS)/os/license $(CHIBIOS)/os/oslib/include \
 # Work out if we're using ChibiOS-Contrib by checking if halconf_community.h exists
 ifneq ("$(wildcard $(KEYBOARD_PATH_5)/halconf_community.h)","")
     USE_CHIBIOS_CONTRIB = yes
+    CONFDIR =  $(KEYBOARD_PATH_5)
 else ifneq ("$(wildcard $(KEYBOARD_PATH_4)/halconf_community.h)","")
     USE_CHIBIOS_CONTRIB = yes
+    CONFDIR = $(KEYBOARD_PATH_4)
 else ifneq ("$(wildcard $(KEYBOARD_PATH_3)/halconf_community.h)","")
     USE_CHIBIOS_CONTRIB = yes
+    CONFDIR = $(KEYBOARD_PATH_3)
 else ifneq ("$(wildcard $(KEYBOARD_PATH_2)/halconf_community.h)","")
     USE_CHIBIOS_CONTRIB = yes
+    CONFDIR = $(KEYBOARD_PATH_2)
 else ifneq ("$(wildcard $(KEYBOARD_PATH_1)/halconf_community.h)","")
     USE_CHIBIOS_CONTRIB = yes
+    CONFDIR = $(KEYBOARD_PATH_1)
 else ifneq ("$(wildcard $(TOP_DIR)/platforms/chibios/$(BOARD)/configs/halconf_community.h)","")
     USE_CHIBIOS_CONTRIB = yes
+    CONFDIR = $(TOP_DIR)/platforms/chibios/$(BOARD)/configs/
 endif
 
 ifeq ($(strip $(USE_CHIBIOS_CONTRIB)),yes)
     include $(CHIBIOS_CONTRIB)/os/hal/hal.mk
     CHIBISRC += $(PLATFORMSRC_CONTRIB) $(HALSRC_CONTRIB)
-    EXTRAINCDIRS += $(PLATFORMINC_CONTRIB) $(HALINC_CONTRIB) $(CHIBIOS_CONTRIB)/os/various
+    EXTRAINCDIRS += $(PLATFORMINC_CONTRIB) $(HALINC_CONTRIB) $(CHIBIOS_CONTRIB)/os/various $(CONFDIR)
 endif
 
 #
