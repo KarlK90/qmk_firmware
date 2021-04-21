@@ -18,5 +18,27 @@
 
 #include "quantum.h"
 
-__attribute__((weak)) void    crc_init(void);
-__attribute__((weak)) uint8_t crc8(const void *data, size_t len);
+/**
+ * The type of the CRC values.
+ *
+ * This type must be big enough to contain at least 8 bits.
+ */
+#if defined(CRC8_OPTIMIZE_SPEED)
+typedef uint_fast8_t crc_t;
+#else
+typedef uint_least8_t crc_t;
+#endif
+
+/**
+ * Initialize crc subsystem.
+ */
+__attribute__((weak)) void crc_init(void);
+
+/**
+ * Generate CRC8 value from given data.
+ *
+ * \param[in] data     Pointer to a buffer of \a data_len bytes.
+ * \param[in] data_len Number of bytes in the \a data buffer.
+ * \return             The calculated crc value.
+ */
+__attribute__((weak)) uint8_t crc8(const void *data, size_t data_len);
