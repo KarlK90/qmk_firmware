@@ -27,6 +27,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "action.h"
 #include "wait.h"
 
+/* private functions */
+static void register_code_P(uint8_t code, void send_report_f(void));
+static void unregister_code_P(uint8_t code, void send_report_f(void));
+
+extern unregister_keycodes_t unregister_keycodes;
+
 #ifdef BACKLIGHT_ENABLE
 #    include "backlight.h"
 #endif
@@ -375,7 +381,7 @@ void process_action(keyrecord_t *record, action_t action) {
                             } else {
                                 wait_ms(TAP_CODE_DELAY);
                             }
-                            unregister_code_deferred(action.key.code);
+                            unregister_code_buffered(action.key.code);
                         } else {
                             dprint("MODS_TAP: No tap: add_mods\n");
                             unregister_mods(mods);
@@ -566,7 +572,7 @@ void process_action(keyrecord_t *record, action_t action) {
                             } else {
                                 wait_ms(TAP_CODE_DELAY);
                             }
-                            unregister_code_deferred(action.layer_tap.code);
+                            unregister_code_buffered(action.layer_tap.code);
                         } else {
                             dprint("KEYMAP_TAP_KEY: No tap: Off on release\n");
                             layer_off(action.layer_tap.val);
@@ -644,7 +650,7 @@ void process_action(keyrecord_t *record, action_t action) {
                             register_code_deferred(action.swap.code);
                         } else {
                             wait_ms(TAP_CODE_DELAY);
-                            unregister_code_deferred(action.swap.code);
+                            unregister_code_buffered(action.swap.code);
                             *record = (keyrecord_t){};  // hack: reset tap mode
                         }
                     } else {
@@ -730,22 +736,20 @@ void process_action(keyrecord_t *record, action_t action) {
 }
 
 void register_code_deferred(uint8_t code) {
-#ifdef DEFER_KEYBOARD_REPORT_ENABLE
-    register_code_P(code, true);
+#if defined(REGISTER_MULTIPLE_KEYEVENTS_ENABLE)
+    register_code_P(code, &send_keyboard_report_deferred);
 #else
-    register_code_P(code, false);
+    register_code_P(code, &send_keyboard_report);
 #endif
 }
 
-void register_code(uint8_t code) {
-    register_code_P(code, false);
-}
+void register_code(uint8_t code) { register_code_P(code, &send_keyboard_report); }
 
 /** \brief Utilities for actions. (FIXME: Needs better description)
  *
  * FIXME: Needs documentation.
  */
-void register_code_P(uint8_t code, bool deferred) {
+void register_code_P(uint8_t code, void send_report_f(void)) {
     if (code == KC_NO) {
         return;
     }
@@ -756,10 +760,10 @@ void register_code_P(uint8_t code, bool deferred) {
         if (host_keyboard_leds() & (1 << USB_LED_CAPS_LOCK)) return;
 #    endif
         add_key(KC_CAPSLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
         wait_ms(100);
         del_key(KC_CAPSLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
     }
 
     else if (KC_LOCKING_NUM == code) {
@@ -767,10 +771,10 @@ void register_code_P(uint8_t code, bool deferred) {
         if (host_keyboard_leds() & (1 << USB_LED_NUM_LOCK)) return;
 #    endif
         add_key(KC_NUMLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
         wait_ms(100);
         del_key(KC_NUMLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
     }
 
     else if (KC_LOCKING_SCROLL == code) {
@@ -778,17 +782,16 @@ void register_code_P(uint8_t code, bool deferred) {
         if (host_keyboard_leds() & (1 << USB_LED_SCROLL_LOCK)) return;
 #    endif
         add_key(KC_SCROLLLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
         wait_ms(100);
         del_key(KC_SCROLLLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
     }
 #endif
 
-    else if
-        IS_KEY(code) {
-            // TODO: should push command_proc out of this block?
-            if (command_proc(code)) return;
+    else if IS_KEY (code) {
+        // TODO: should push command_proc out of this block?
+        if (command_proc(code)) return;
 
 #ifndef NO_ACTION_ONESHOT
 /* TODO: remove
@@ -797,63 +800,72 @@ void register_code_P(uint8_t code, bool deferred) {
             add_mods(oneshot_state.mods);
 
             add_key(code);
-            deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+            send_report_f();
 
             set_mods(tmp_mods);
-            deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+            send_report_f();
             oneshot_cancel();
         } else
 */
 #endif
-            {
-                // Force a new key press if the key is already pressed
-                // without this, keys with the same keycode, but different
-                // modifiers will be reported incorrectly, see issue #1708
-                if (is_key_pressed(keyboard_report, code)) {
-                    del_key(code);
-                    deferred ? send_keyboard_report_deferred() : send_keyboard_report();
-                }
-                add_key(code);
-                deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        {
+            // Force a new key press if the key is already pressed
+            // without this, keys with the same keycode, but different
+            // modifiers will be reported incorrectly, see issue #1708
+            if (is_key_pressed(&keyboard_report, code)) {
+                del_key(code);
+                send_keyboard_report();
             }
+            add_key(code);
+            send_report_f();
         }
-    else if
-        IS_MOD(code) {
-            add_mods(MOD_BIT(code));
-            deferred ? send_keyboard_report_deferred() : send_keyboard_report();
-        }
+    } else if IS_MOD (code) {
+        add_mods(MOD_BIT(code));
+        send_report_f();
+    }
 #ifdef EXTRAKEY_ENABLE
-    else if
-        IS_SYSTEM(code) { host_system_send(KEYCODE2SYSTEM(code)); }
-    else if
-        IS_CONSUMER(code) { host_consumer_send(KEYCODE2CONSUMER(code)); }
+    else if IS_SYSTEM (code) {
+        host_system_send(KEYCODE2SYSTEM(code));
+    } else if IS_CONSUMER (code) {
+        host_consumer_send(KEYCODE2CONSUMER(code));
+    }
 #endif
 #ifdef MOUSEKEY_ENABLE
-    else if
-        IS_MOUSEKEY(code) {
-            mousekey_on(code);
-            mousekey_send();
-        }
+    else if IS_MOUSEKEY (code) {
+        mousekey_on(code);
+        mousekey_send();
+    }
 #endif
 }
 
 void unregister_code_deferred(uint8_t code) {
-#ifdef DEFER_KEYBOARD_REPORT_ENABLE
-    unregister_code_P(code, true);
+#if defined(REGISTER_MULTIPLE_KEYEVENTS_ENABLE)
+    unregister_code_P(code, &send_keyboard_report_deferred);
 #else
-    unregister_code_P(code, false);
+    unregister_code_P(code, &send_keyboard_report);
 #endif
 }
 
-void unregister_code(uint8_t code) {
-    unregister_code_P(code, false);
+void unregister_code(uint8_t code) { unregister_code_P(code, &send_keyboard_report); }
+
+void unregister_code_buffered(uint8_t code) {
+#if defined(REGISTER_MULTIPLE_KEYEVENTS_ENABLE)
+    if (unregister_keycodes.len > UNREGISTER_KEYCODES_BUFFER_SIZE) {
+        dprintln("ERROR: couldn't add unregister keycode, buffer is full!");
+        return;
+    }
+    unregister_keycodes.buffer[unregister_keycodes.len] = code;
+    unregister_keycodes.len += 1;
+#else
+    unregister_code_P(code, &send_keyboard_report);
+#endif
 }
 
 /** \brief Utilities for actions. (FIXME: Needs better description)
  *
  * FIXME: Needs documentation.
  */
-void unregister_code_P(uint8_t code, bool deferred) {
+void unregister_code_P(uint8_t code, void send_report_f(void)) {
     if (code == KC_NO) {
         return;
     }
@@ -864,9 +876,9 @@ void unregister_code_P(uint8_t code, bool deferred) {
         if (!(host_keyboard_leds() & (1 << USB_LED_CAPS_LOCK))) return;
 #    endif
         add_key(KC_CAPSLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
         del_key(KC_CAPSLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
     }
 
     else if (KC_LOCKING_NUM == code) {
@@ -874,9 +886,9 @@ void unregister_code_P(uint8_t code, bool deferred) {
         if (!(host_keyboard_leds() & (1 << USB_LED_NUM_LOCK))) return;
 #    endif
         add_key(KC_NUMLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
         del_key(KC_NUMLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
     }
 
     else if (KC_LOCKING_SCROLL == code) {
@@ -884,32 +896,28 @@ void unregister_code_P(uint8_t code, bool deferred) {
         if (!(host_keyboard_leds() & (1 << USB_LED_SCROLL_LOCK))) return;
 #    endif
         add_key(KC_SCROLLLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
         del_key(KC_SCROLLLOCK);
-        deferred ? send_keyboard_report_deferred() : send_keyboard_report();
+        send_report_f();
     }
 #endif
 
-    else if
-        IS_KEY(code) {
-            del_key(code);
-            deferred ? send_keyboard_report_deferred() : send_keyboard_report();
-        }
-    else if
-        IS_MOD(code) {
-            del_mods(MOD_BIT(code));
-            deferred ? send_keyboard_report_deferred() : send_keyboard_report();
-        }
-    else if
-        IS_SYSTEM(code) { host_system_send(0); }
-    else if
-        IS_CONSUMER(code) { host_consumer_send(0); }
+    else if IS_KEY (code) {
+        del_key(code);
+        send_report_f();
+    } else if IS_MOD (code) {
+        del_mods(MOD_BIT(code));
+        send_report_f();
+    } else if IS_SYSTEM (code) {
+        host_system_send(0);
+    } else if IS_CONSUMER (code) {
+        host_consumer_send(0);
+    }
 #ifdef MOUSEKEY_ENABLE
-    else if
-        IS_MOUSEKEY(code) {
-            mousekey_off(code);
-            mousekey_send();
-        }
+    else if IS_MOUSEKEY (code) {
+        mousekey_off(code);
+        mousekey_send();
+    }
 #endif
 }
 
