@@ -19,5 +19,5 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 
 #ifdef USE_CIE1931_CURVE
-extern const uint8_t CIE1931_CURVE[] PROGMEM;
+extern const uint_fast8_t CIE1931_CURVE[] PROGMEM;
 #endif

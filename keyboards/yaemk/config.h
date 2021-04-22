@@ -37,10 +37,12 @@
 #define BUSY_WAIT
 #define BUSY_WAIT_INSTRUCTIONS 20
 #if defined(__riscv)
-#    define GPIO_INPUT_PIN_DELAY (GD32_HCLK / 1000000L / 8)
+#    define GPIO_INPUT_PIN_DELAY 4
 #elif defined(__arm__)
-#    define GPIO_INPUT_PIN_DELAY (STM32_HCLK / 1000000L / 8)
+#    define GPIO_INPUT_PIN_DELAY 4
 #endif
+    
+#define QMK_OPTIMIZE_SPEED
 #define QMK_KEYS_PER_SCAN 8
 
 /* ENCODER CONFIG */

@@ -24,6 +24,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "transport.h"
 
+#if defined(QMK_OPTIMIZE_SPEED)
+#pragma GCC push_options
+#pragma GCC optimize("O3")
+#endif
+
 #define ERROR_DISCONNECT_COUNT 5
 
 #define ROWS_PER_HAND (MATRIX_ROWS / 2)
@@ -307,3 +312,7 @@ uint8_t matrix_scan(void) {
     bool remote_changed = matrix_post_scan();
     return (uint8_t)(local_changed || remote_changed);
 }
+
+#if defined(QMK_OPTIMIZE_SPEED)
+#pragma GCC pop_options
+#endif

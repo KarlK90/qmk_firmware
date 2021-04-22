@@ -18,10 +18,15 @@
 #include "led_tables.h"
 #include "progmem.h"
 
+#if defined(QMK_OPTIMIZE_SPEED)
+#pragma GCC push_options
+#pragma GCC optimize("O3")
+#endif
+
 RGB hsv_to_rgb_impl(HSV hsv, bool use_cie) {
-    RGB      rgb;
-    uint8_t  region, remainder, p, q, t;
-    uint16_t h, s, v;
+    RGB           rgb;
+    uint_fast8_t  region, remainder, p, q, t;
+    uint_fast16_t h, s, v;
 
     if (hsv.s == 0) {
 #ifdef USE_CIE1931_CURVE
@@ -118,4 +123,8 @@ void convert_rgb_to_rgbw(LED_TYPE *led) {
     led->g -= led->w;
     led->b -= led->w;
 }
+#endif
+
+#if defined(QMK_OPTIMIZE_SPEED)
+#pragma GCC pop_options
 #endif
