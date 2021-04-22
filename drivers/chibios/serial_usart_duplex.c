@@ -158,10 +158,6 @@ static THD_FUNCTION(SlaveThread, arg) {
 void soft_serial_target_init(void) {
     usart_init();
 
-#if defined(SERIAL_USART_PIN_SWAP)
-    uart_config.cr2 |= ~USART_CR2_SWAP;  // slave has non-swapped TX/RX pins
-#endif
-
 #if defined(USART_REMAP)
     USART_REMAP
 #endif
@@ -232,7 +228,7 @@ void soft_serial_initiator_init(void) {
     usart_init();
 
 #if defined(SERIAL_USART_PIN_SWAP)
-    uart_config.cr2 |= ~USART_CR2_SWAP;  // master has non-swapped TX/RX pins
+    uart_config.cr2 |= USART_CR2_SWAP;  // master has swapped TX/RX pins
 #endif
 
 #if defined(USART_REMAP)
