@@ -33,13 +33,13 @@
     { A8, B12, A6, A5, A1 }
 #define DIODE_DIRECTION COL2ROW
 #define DEBUG_MATRIX_SCAN_RATE
-#define DEBOUNCE 8
+#define DEBOUNCE 5
 #define BUSY_WAIT
 #define BUSY_WAIT_INSTRUCTIONS 20
 #if defined(__riscv)
-#    define GPIO_INPUT_PIN_DELAY (GD32_HCLK / 1000000L / 8)
+#    define GPIO_INPUT_PIN_DELAY 4
 #elif defined(__arm__)
-#    define GPIO_INPUT_PIN_DELAY (STM32_HCLK / 1000000L / 8)
+#    define GPIO_INPUT_PIN_DELAY 4
 #endif
 
 #define LAYER_STATE_8BIT

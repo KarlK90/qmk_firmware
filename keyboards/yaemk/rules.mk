@@ -20,13 +20,13 @@ LAYOUTS = split_5x8
 SRC     = led_config.c
 
 # Debugging
-EXTRAFLAGS     += -g 
+EXTRAFLAGS     += -g
 ALLOW_WARNINGS =   yes
 
 # QMK features 
 COMBINED_KEYBOARD_REPORT = yes
 CONSOLE_ENABLE           = no
-DEBOUNCE_TYPE            = eager_pk
+DEBOUNCE_TYPE            = asym_eager_defer_pk
 EEPROM_DRIVER            = i2c
 ENCODER_ENABLE           = yes
 EXTRAKEY_ENABLE          = yes
