@@ -61,12 +61,6 @@ __attribute__((weak)) bool get_ignore_mod_tap_interrupt(uint16_t keycode, keyrec
 __attribute__((weak)) bool get_retro_tapping(uint16_t keycode, keyrecord_t *record) { return false; }
 #endif
 
-#ifndef TAP_CODE_DELAY
-#    define TAP_CODE_DELAY 0
-#endif
-#ifndef TAP_HOLD_CAPS_DELAY
-#    define TAP_HOLD_CAPS_DELAY 80
-#endif
 /** \brief Called to execute an action.
  *
  * FIXME: Needs documentation.
@@ -857,7 +851,21 @@ void unregister_code_buffered(uint8_t code, uint16_t delay) {
         unregister_keycodes.tap_delay = delay;
     }
 #else
-    wait_ms(delay);
+    switch (delay) {
+        case TAP_CODE_DELAY:
+            wait_ms(TAP_CODE_DELAY);
+            break;
+        case TAP_HOLD_CAPS_DELAY:
+            wait_ms(TAP_HOLD_CAPS_DELAY);
+            break;
+        default:
+#    if defined(__AVR__)
+            debugln("Arbitrary waits not possible __builtin_avr_delay_cycles expects a compile time integer constant!")
+#    else
+            wait_ms(delay);
+#    endif
+                break;
+    }
     unregister_code_P(code, &send_keyboard_report);
 #endif
 }

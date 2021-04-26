@@ -38,6 +38,14 @@ extern "C" {
 #    endif
 #endif
 
+#if !defined(TAP_CODE_DELAY)
+#    define TAP_CODE_DELAY 0
+#endif
+
+#if !defined(TAP_HOLD_CAPS_DELAY)
+#    define TAP_HOLD_CAPS_DELAY 80
+#endif
+
 /* tapping count and state */
 typedef struct {
     bool    interrupted : 1;

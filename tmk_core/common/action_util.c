@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "host.h"
 #include "report.h"
 #include "debug.h"
+#include "wait.h"
 #include "action_util.h"
 #include "action_layer.h"
 #include "timer.h"
@@ -286,20 +287,46 @@ void send_keyboard_report_buffered_unregister_keys(void) {
         size_t added_keys = 0;
         while (unregister_keycodes.len > 0) {
             if (added_keys == MAX_KEYCODES_PER_RECORD) {
-                if (unregister_keycodes.tap_delay > 0) {
-                    wait_ms(unregister_keycodes.tap_delay);
+                switch (unregister_keycodes.tap_delay) {
+                    case TAP_CODE_DELAY:
+                        wait_ms(TAP_CODE_DELAY);
+                        break;
+                    case TAP_HOLD_CAPS_DELAY:
+                        wait_ms(TAP_HOLD_CAPS_DELAY);
+                        break;
+                    default:
+#if defined(__AVR__)
+                        debugln("Arbitrary waits not possible __builtin_avr_delay_cycles expects a compile time integer constant!")
+#else
+                        wait_ms(unregister_keycodes.tap_delay);
+#endif
+                            break;
                 }
+
                 send_keyboard_report_immediate();
-                added_keys = 0;
+                unregister_keycodes.tap_delay = 0;
+                added_keys                    = 0;
             }
             unregister_keycodes.len -= 1;
             unregister_code_deferred(unregister_keycodes.buffer[unregister_keycodes.len]);
             added_keys += 1;
         }
-        if (unregister_keycodes.tap_delay > 0) {
-            wait_ms(unregister_keycodes.tap_delay);
-            unregister_keycodes.tap_delay = 0;
+        switch (unregister_keycodes.tap_delay) {
+            case TAP_CODE_DELAY:
+                wait_ms(TAP_CODE_DELAY);
+                break;
+            case TAP_HOLD_CAPS_DELAY:
+                wait_ms(TAP_HOLD_CAPS_DELAY);
+                break;
+            default:
+#if defined(__AVR__)
+                debugln("Arbitrary waits not possible __builtin_avr_delay_cycles expects a compile time integer constant!")
+#else
+                wait_ms(unregister_keycodes.tap_delay);
+#endif
+                    break;
         }
+        unregister_keycodes.tap_delay = 0;
         send_keyboard_report_immediate();
     }
 }
