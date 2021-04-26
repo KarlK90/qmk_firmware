@@ -298,6 +298,7 @@ void send_keyboard_report_buffered_unregister_keys(void) {
         }
         if (unregister_keycodes.tap_delay > 0) {
             wait_ms(unregister_keycodes.tap_delay);
+            unregister_keycodes.tap_delay = 0;
         }
         send_keyboard_report_immediate();
     }

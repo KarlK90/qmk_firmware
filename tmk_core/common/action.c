@@ -376,7 +376,7 @@ void process_action(keyrecord_t *record, action_t action) {
                     } else {
                         if (tap_count > 0) {
                             dprint("MODS_TAP: Tap: unregister_code\n");
-                            static uint16_t delay = TAP_CODE_DELAY;
+                            uint16_t delay = TAP_CODE_DELAY;
                             if (action.layer_tap.code == KC_CAPS) {
                                 delay = TAP_HOLD_CAPS_DELAY;
                             }
@@ -566,7 +566,7 @@ void process_action(keyrecord_t *record, action_t action) {
                     } else {
                         if (tap_count > 0) {
                             dprint("KEYMAP_TAP_KEY: Tap: unregister_code\n");
-                            static uint16_t delay = TAP_CODE_DELAY;
+                            uint16_t delay = TAP_CODE_DELAY;
                             if (action.layer_tap.code == KC_CAPS) {
                                 delay = TAP_HOLD_CAPS_DELAY;
                             }
