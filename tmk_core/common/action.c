@@ -757,7 +757,7 @@ void register_code_P(uint8_t code, void send_report_f(void)) {
         if (host_keyboard_leds() & (1 << USB_LED_CAPS_LOCK)) return;
 #    endif
         add_key(KC_CAPSLOCK);
-        send_report_f();
+        send_keyboard_report();
         wait_ms(100);
         del_key(KC_CAPSLOCK);
         send_report_f();
@@ -768,7 +768,7 @@ void register_code_P(uint8_t code, void send_report_f(void)) {
         if (host_keyboard_leds() & (1 << USB_LED_NUM_LOCK)) return;
 #    endif
         add_key(KC_NUMLOCK);
-        send_report_f();
+        send_keyboard_report();
         wait_ms(100);
         del_key(KC_NUMLOCK);
         send_report_f();
@@ -779,7 +779,7 @@ void register_code_P(uint8_t code, void send_report_f(void)) {
         if (host_keyboard_leds() & (1 << USB_LED_SCROLL_LOCK)) return;
 #    endif
         add_key(KC_SCROLLLOCK);
-        send_report_f();
+        send_keyboard_report();
         wait_ms(100);
         del_key(KC_SCROLLLOCK);
         send_report_f();
