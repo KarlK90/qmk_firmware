@@ -286,12 +286,18 @@ void send_keyboard_report_buffered_unregister_keys(void) {
         size_t added_keys = 0;
         while (unregister_keycodes.len > 0) {
             if (added_keys == MAX_KEYCODES_PER_RECORD) {
+                if (unregister_keycodes.tap_delay > 0) {
+                    wait_ms(unregister_keycodes.tap_delay);
+                }
                 send_keyboard_report_immediate();
                 added_keys = 0;
             }
             unregister_keycodes.len -= 1;
             unregister_code_deferred(unregister_keycodes.buffer[unregister_keycodes.len]);
             added_keys += 1;
+        }
+        if (unregister_keycodes.tap_delay > 0) {
+            wait_ms(unregister_keycodes.tap_delay);
         }
         send_keyboard_report_immediate();
     }

@@ -37,8 +37,9 @@ extern "C" {
 #endif
 
 typedef struct {
-    uint8_t buffer[UNREGISTER_KEYCODES_BUFFER_SIZE];
-    size_t  len;
+    uint8_t  buffer[UNREGISTER_KEYCODES_BUFFER_SIZE];
+    size_t   len;
+    uint16_t tap_delay;
 } unregister_keycodes_t;
 
 extern report_keyboard_t     keyboard_report;

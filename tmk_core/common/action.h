@@ -100,7 +100,7 @@ void process_action(keyrecord_t *record, action_t action);
 void register_code_deferred(uint8_t code);
 void register_code(uint8_t code);
 void unregister_code_deferred(uint8_t code);
-void unregister_code_buffered(uint8_t code);
+void unregister_code_buffered(uint8_t code, uint16_t delay);
 void unregister_code(uint8_t code);
 void tap_code(uint8_t code);
 void tap_code_delay(uint8_t code, uint16_t delay);
