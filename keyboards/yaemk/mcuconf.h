@@ -28,8 +28,6 @@
 #undef STM32_RTCSEL
 #define STM32_RTCSEL STM32_RTCSEL_NOCLOCK
 
-#define STM32_CRC_USE_CRC1 TRUE
-
 #undef STM32_I2C_USE_I2C1
 #define STM32_I2C_USE_I2C1 TRUE
 
@@ -146,12 +144,12 @@
 /*
  * CRC driver system settings.
  */
-#define GD32_CRC_USE_CRC0                   TRUE
+#define GD32_CRC_USE_CRC0                   FALSE
 #define GD32_CRC_CRC0_DMA_IRQ_PRIORITY      14
 #define GD32_CRC_CRC0_DMA_PRIORITY          2
 #define GD32_CRC_CRC0_DMA_STREAM            GD32_DMA_STREAM_ID(0, 0)
 #define CRC_USE_DMA                         FALSE
-#define CRCSW_USE_CRC1                      TRUE
+#define CRCSW_USE_CRC1                      FALSE
 #define CRCSW_CRC32_TABLE                   TRUE
 #define CRCSW_CRC16_TABLE                   TRUE
 #define CRCSW_PROGRAMMABLE                  TRUE
