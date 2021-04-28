@@ -851,20 +851,17 @@ void unregister_code_buffered(uint8_t code, uint16_t delay) {
         unregister_keycodes.tap_delay = delay;
     }
 #else
-    switch (delay) {
-        case TAP_CODE_DELAY:
+    if (delay > 0) {
+        if (delay == TAP_CODE_DELAY) {
             wait_ms(TAP_CODE_DELAY);
-            break;
-        case TAP_HOLD_CAPS_DELAY:
+        } else if (delay == TAP_HOLD_CAPS_DELAY) {
             wait_ms(TAP_HOLD_CAPS_DELAY);
-            break;
-        default:
-#    if defined(__AVR__)
-            debugln("Arbitrary waits not possible __builtin_avr_delay_cycles expects a compile time integer constant!")
-#    else
+        }
+#    if !defined(__AVR)
+        else {
             wait_ms(delay);
+        }
 #    endif
-                break;
     }
     unregister_code_P(code, &send_keyboard_report);
 #endif

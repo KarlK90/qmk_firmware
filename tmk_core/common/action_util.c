@@ -287,20 +287,17 @@ void send_keyboard_report_buffered_unregister_keys(void) {
         size_t added_keys = 0;
         while (unregister_keycodes.len > 0) {
             if (added_keys == MAX_KEYCODES_PER_RECORD) {
-                switch (unregister_keycodes.tap_delay) {
-                    case TAP_CODE_DELAY:
+                if (unregister_keycodes.tap_delay > 0) {
+                    if (unregister_keycodes.tap_delay == TAP_CODE_DELAY) {
                         wait_ms(TAP_CODE_DELAY);
-                        break;
-                    case TAP_HOLD_CAPS_DELAY:
+                    } else if (unregister_keycodes.tap_delay == TAP_HOLD_CAPS_DELAY) {
                         wait_ms(TAP_HOLD_CAPS_DELAY);
-                        break;
-                    default:
-#if defined(__AVR__)
-                        debugln("Arbitrary waits not possible __builtin_avr_delay_cycles expects a compile time integer constant!")
-#else
+                    }
+#if !defined(__AVR)
+                    else {
                         wait_ms(unregister_keycodes.tap_delay);
+                    }
 #endif
-                            break;
                 }
 
                 send_keyboard_report_immediate();
@@ -311,20 +308,17 @@ void send_keyboard_report_buffered_unregister_keys(void) {
             unregister_code_deferred(unregister_keycodes.buffer[unregister_keycodes.len]);
             added_keys += 1;
         }
-        switch (unregister_keycodes.tap_delay) {
-            case TAP_CODE_DELAY:
+        if (unregister_keycodes.tap_delay > 0) {
+            if (unregister_keycodes.tap_delay == TAP_CODE_DELAY) {
                 wait_ms(TAP_CODE_DELAY);
-                break;
-            case TAP_HOLD_CAPS_DELAY:
+            } else if (unregister_keycodes.tap_delay == TAP_HOLD_CAPS_DELAY) {
                 wait_ms(TAP_HOLD_CAPS_DELAY);
-                break;
-            default:
-#if defined(__AVR__)
-                debugln("Arbitrary waits not possible __builtin_avr_delay_cycles expects a compile time integer constant!")
-#else
+            }
+#if !defined(__AVR)
+            else {
                 wait_ms(unregister_keycodes.tap_delay);
+            }
 #endif
-                    break;
         }
         unregister_keycodes.tap_delay = 0;
         send_keyboard_report_immediate();
