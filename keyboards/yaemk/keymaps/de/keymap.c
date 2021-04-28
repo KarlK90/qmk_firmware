@@ -1,14 +1,12 @@
 #include QMK_KEYBOARD_H
-#include "keymap_us_international.h"
+#include "keymap_german.h"
+#include "printf.h"
 
-enum Layers {
-    _BASE = 0,
-    _SYM  = 1,
-    _NAV  = 2,
-    _FN   = 3,
-    _RGB  = 4,
-    _GAME = 5,
-};
+#if defined(RGB_MATRIX_ENABLE)
+extern rgb_config_t rgb_matrix_config;
+#endif
+
+enum Layers { _BASE = 0, _SYM = 1, _NAV = 2, _FN = 3, _RGB = 4, _GAME = 5 };
 
 enum Encoder {
     _ENCODER_LEFT  = 0,
@@ -18,25 +16,25 @@ enum Encoder {
 // clang-format off
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-   [_BASE] = LAYOUT( \
-     KC_ESC         , KC_1          , KC_2          , KC_3          , KC_4          , KC_5          , LCTL(KC_GRV)  ,                                 KC_ESC        , KC_6          , KC_7          , KC_8          , KC_9          , KC_0          , KC_MINS       ,\
-     KC_TAB         , KC_Q          , KC_W          , KC_E          , KC_R          , KC_T          , MO(_RGB)      ,                                 MO(_RGB)      , KC_Y          , KC_U          , KC_I          , KC_O          , KC_P          , KC_LBRC       ,\
-     KC_CAPS        , LGUI_T(KC_A)  , LALT_T(KC_S)  , LCTL_T(KC_D)  , LT(_SYM,KC_F) , KC_G          , MO(_FN)       ,                                 MO(_FN)       , KC_H          , LT(_SYM, KC_J), LCTL_T(KC_K)  , LALT_T(KC_L)  ,LGUI_T(KC_SCLN), KC_QUOT       ,\
-     KC_NUBS        , KC_Z          , KC_X          , KC_C          , KC_V          , KC_B          , KC_BSPC       , KC_BSPC       , KC_ENT        , KC_ENT        , KC_N          , KC_M          , KC_COMM       , KC_DOT        , KC_SLSH       , KC_NUBS       ,\
+  [_BASE] = LAYOUT( \
+     KC_ESC         , KC_1          , KC_2          , KC_3          , KC_4          , KC_5          , LCTL(DE_CIRC) ,                                 KC_ESC        , KC_6          , KC_7          , KC_8          , KC_9          , KC_0          , DE_SS         ,\
+     KC_TAB         , DE_Q          , DE_W          , DE_E          , DE_R          , DE_T          , MO(_RGB)      ,                                 MO(_RGB)      , DE_Z          , DE_U          , DE_I          , DE_O          , DE_P          , DE_UDIA       ,\
+     MO(_SYM)       , LGUI_T(DE_A)  , LALT_T(DE_S)  , LCTL_T(DE_D)  , LT(_SYM,DE_F) , DE_G          , MO(_FN)       ,                                 MO(_FN)       , DE_H          , LT(_SYM,DE_J) , RCTL_T(DE_K)  , RALT_T(DE_L)  ,RGUI_T(DE_ODIA), DE_ADIA       ,\
+     MO(_NAV)       , DE_Y          , DE_X          , DE_C          , DE_V          , DE_B          , KC_BSPC       , MO(_NAV)      , MO(_NAV)      , KC_ENT        , DE_N          , DE_M          , DE_COMM       , DE_DOT        , DE_MINS       , MO(_NAV)      ,\
                                                       TG(_GAME)     , KC_ESC        , LSFT_T(KC_SPC), KC_BSPC       , MO(_NAV)      , MO(_NAV)      , KC_ENT        , RSFT_T(KC_SPC), KC_RALT       , TG(_GAME)\
   ),
    [_SYM] = LAYOUT( \
     _______         , _______       , _______       , _______       , _______       , _______       , _______       ,                                 _______       , _______       , _______       , _______       , _______       , _______       , _______       ,\
-    _______         , _______       , US_UNDS       , US_LBRC       , US_RBRC       , US_DCIR       , _______       ,                                 _______       , US_EXLM       , US_LABK       , US_RABK       , US_EQL        , US_AMPR       , _______       ,\
-    _______         , US_BSLS       , US_SLSH       , US_LCBR       , US_RCBR       , US_ASTR       , _______       ,                                 _______       , US_QUES       , US_LPRN       , US_RPRN       , US_MINS       , US_COLN       , US_AT         ,\
-    _______         , US_HASH       , US_DLR        , US_PIPE       , US_DTIL       , US_DGRV       , _______       , _______       , _______       , _______       , US_PLUS       , US_PERC       , S(KC_QUOT)    , KC_QUOT       , US_SCLN       , _______       ,\
+    _______         , _______       , DE_UNDS       , DE_LBRC       , DE_RBRC       , DE_CIRC       , _______       ,                                 _______       , DE_EXLM       , DE_LABK       , DE_RABK       , DE_EQL        , DE_AMPR       , _______       ,\
+    _______         , DE_BSLS       , DE_SLSH       , DE_LCBR       , DE_RCBR       , DE_ASTR       , _______       ,                                 _______       , DE_QUES       , DE_LPRN       , DE_RPRN       , DE_MINS       , DE_COLN       , DE_AT         ,\
+    _______         , DE_HASH       , DE_DLR        , DE_PIPE       , DE_TILD       , DE_GRV        , _______       , _______       , _______       , _______       , DE_PLUS       , DE_PERC       , DE_DQOT       , DE_QUOT       , DE_SCLN       , _______       ,\
                                                       _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______ \
   ),
    [_NAV] = LAYOUT( \
-    _______         , _______       , _______       , _______       , _______       , _______       , _______       ,                                 _______       , _______       , _______       , _______       , KC_SLSH       , KC_ASTR       , _______       ,\
-    _______         , KC_PGUP       , KC_BSPC       , KC_UP         , KC_DELETE     , KC_PGDN       , _______       ,                                 _______       , _______       , KC_7          , KC_8          , KC_9          , KC_PLUS       , KC_MINS       ,\
-    _______         , KC_HOME       , KC_LEFT       , KC_DOWN       , KC_RIGHT      , KC_END        , _______       ,                                 _______       , _______       , KC_4          , KC_5          , KC_6          , KC_COMM       , KC_DOT        ,\
-    _______         , KC_ESC        , KC_TAB        , _______       , KC_ENT        , _______       , _______       , _______       , _______       , _______       , _______       , KC_1          , KC_2          , KC_3          , KC_SCLN       , _______       ,\
+    _______         , _______       , _______       , _______       , _______       , _______       , _______       ,                                 _______       , _______       , _______       , _______       , DE_SLSH       , DE_ASTR       , _______       ,\
+    _______         , KC_PGUP       , KC_BSPC       , KC_UP         , KC_DELETE     , KC_PGDN       , _______       ,                                 _______       , _______       , KC_7          , KC_8          , KC_9          , DE_PLUS       , DE_MINS       ,\
+    _______         , KC_HOME       , KC_LEFT       , KC_DOWN       , KC_RIGHT      , KC_END        , _______       ,                                 _______       , _______       , KC_4          , RCTL_T(KC_5)  , RALT_T(KC_6)  ,RGUI_T(DE_COMM), DE_DOT        ,\
+    _______         , KC_ESC        , KC_TAB        , _______       , KC_ENT        , _______       , _______       , _______       , _______       , _______       , _______       , KC_1          , KC_2          , KC_3          , DE_SCLN       , _______       ,\
                                                       _______       , _______       , _______       , _______       , _______       , _______       , _______       , KC_0          , _______       , _______ \
   ),
    [_FN] = LAYOUT( \
@@ -44,7 +42,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______         , _______       , KC_BTN1       , KC_MS_U       , KC_BTN2       , KC_PSCR       , _______       ,                                 _______       , _______       , KC_F7         , KC_F8         , KC_F9         , _______       , _______       ,\
     _______         , _______       , KC_MS_L       , KC_MS_D       , KC_MS_R       , _______       , _______       ,                                 _______       , _______       , KC_F4         , KC_F5         , KC_F6         , _______       , _______       ,\
     _______         , _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , KC_F1         , KC_F2         , KC_F3         , _______       , _______       ,\
-                                                      _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______ \
+                                                      KC_MPLY       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , _______       , KC_AUDIO_MUTE \
   ),
   [_RGB] = LAYOUT( \
     _______         , _______       , _______       , _______       , _______       , _______       , _______       ,                                 _______       , _______       , RGB_TOG       , RGB_M_SW      , _______       , _______       , _______       ,\
@@ -199,7 +197,7 @@ void render_display(void) {
             oled_write_ln("Game", false);
             break;
         default:
-            oled_write_ln("QWERTY", false);
+            oled_write_ln("QWERTZ", false);
             break;
     }
 }
