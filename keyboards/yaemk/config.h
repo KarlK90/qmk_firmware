@@ -108,7 +108,7 @@
 #if defined(__riscv)
 #    define SERIAL_USART_SPEED (GD32_PCLK1 >> 4)  // Stable baudrate.
 #elif defined(__arm__)
-#    define SERIAL_USART_SPEED (STM32_PCLK1 >> 6)  // Stable baudrate.
+#    define SERIAL_USART_SPEED (STM32_PCLK1 >> 4)  // Stable baudrate.
 #endif
 
 /* I2C DRIVER */
@@ -139,7 +139,7 @@
 #define OLED_UPDATE_INTERVAL 200
 
 /* TAPPING CONFIG */
-#define TAPPING_TERM 160
+#define TAPPING_TERM 200
 #define TAPPING_TOGGLE 2
 #define TAPPING_FORCE_HOLD
 #define IGNORE_MOD_TAP_INTERRUPT
