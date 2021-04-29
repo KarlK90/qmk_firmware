@@ -25,8 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 extern "C" {
 #endif
 
-#if !defined(QMK_KEYS_PER_SCAN) && defined(REGISTER_MULTIPLE_KEYEVENTSS_ENABLED)
-#    warning REGISTER_MULTIPLE_KEYEVENTSS_ENABLED needs QMK_KEYS_PER_SCAN defined to have any effect, setting default of 4.
+#if !defined(QMK_KEYS_PER_SCAN) && defined(REGISTER_MULTIPLE_KEYEVENTS_ENABLE)
+#    warning REGISTER_MULTIPLE_KEYEVENTS_ENABLE needs QMK_KEYS_PER_SCAN defined to have any effect, setting default of 4.
 #    define QMK_KEYS_PER_SCAN 4
 #endif
 
