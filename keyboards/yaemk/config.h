@@ -106,9 +106,9 @@
 #define SERIAL_USART_TIMEOUT 15
 
 #if defined(__riscv)
-#    define SERIAL_USART_SPEED (GD32_PCLK1 >> 4)  // Stable baudrate.
+#    define SERIAL_USART_SPEED (GD32_PCLK1 >> 4)  // Use highest possible baudrate.
 #elif defined(__arm__)
-#    define SERIAL_USART_SPEED (STM32_PCLK1 >> 4)  // Stable baudrate.
+#    define SERIAL_USART_SPEED (STM32_PCLK1 >> 4)  // Use highest possible baudrate.
 #endif
 
 /* I2C DRIVER */
