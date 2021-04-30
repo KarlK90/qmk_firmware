@@ -82,16 +82,16 @@
 
 #define HANDSHAKE_MAGIC 0x7
 #define HANDSHAKE_START_SEND 0x11
-#define SIGNAL_HANDSHAKE_RECEIVED 0x1
-#define SIGNAL_START_SEND 0x2
 
-typedef enum { WAITING, TRANSMITTING } state_t;
+typedef enum { SIGNAL_HANDSHAKE_RECEIVED, SIGNAL_START_SEND } transaction_signal_t;
 
-static state_t              current_state = WAITING;
+typedef enum { WAITING, RECEIVED_HANDSHAKE, TRANSMITTING } transaction_state_t;
+
+static transaction_state_t  current_state = WAITING;
 static atomic_uint_least8_t handshake     = ~0;
 static thread_reference_t   tp_actor      = NULL;
 
-void handle_transactions_slave(uint8_t sstd_index);
+static void handle_transactions_slave(uint8_t sstd_index);
 
 /*
  * UART driver configuration structure. We use the blocking DMA enabled API and
@@ -111,6 +111,9 @@ static UARTConfig uart_config = {
     .cr3 = (SERIAL_USART_CR3)
 };
 // clang-format on
+
+// CALLBACK FUNCTIONS
+/////////////////////
 
 /*
  * This callback is invoked when a character is received but the application
@@ -158,15 +161,8 @@ static void initiator_callback(UARTDriver* uartp, uint16_t received_handshake) {
     }
 }
 
-__attribute__((weak)) void usart_init(void) {
-#if defined(USE_GPIOV1)
-    palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_STM32_ALTERNATE_PUSHPULL);
-    palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_INPUT);
-#else
-    palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_TX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
-    palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_RX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
-#endif
-}
+// RECEIVING THREAD
+///////////////////
 
 /*
  * This thread runs on the slave half and reacts to transactions initiated from the master.
@@ -184,6 +180,19 @@ static THD_FUNCTION(SlaveThread, arg) {
     }
 }
 
+/// INIT FUNCTIONS
+//////////////////
+
+__attribute__((weak)) void usart_init(void) {
+#if defined(USE_GPIOV1)
+    palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_STM32_ALTERNATE_PUSHPULL);
+    palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_INPUT);
+#else
+    palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_TX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+    palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_RX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+#endif
+}
+
 void soft_serial_target_init(void) {
     usart_init();
 
@@ -196,6 +205,25 @@ void soft_serial_target_init(void) {
     uart_config.rxchar_cb = target_callback;
     uartStart(&SERIAL_USART_DRIVER, &uart_config);
 }
+
+void soft_serial_initiator_init(void) {
+    usart_init();
+
+#if defined(SERIAL_USART_PIN_SWAP)
+    uart_config.cr2 |= USART_CR2_SWAP;  // master has swapped TX/RX pins
+#endif
+
+#if defined(USART_REMAP)
+    USART_REMAP
+#endif
+
+    tp_actor              = chThdGetSelfX();
+    uart_config.rxchar_cb = initiator_callback;
+    uartStart(&SERIAL_USART_DRIVER, &uart_config);
+}
+
+/// TRANSACTION FUNCTIONS
+/////////////////////////
 
 /**
  * @brief React to transactions started by the master.
@@ -267,22 +295,6 @@ void inline handle_transactions_slave(uint8_t sstd_index) {
     if (trans->status) {
         *trans->status = TRANSACTION_ACCEPTED;
     }
-}
-
-void soft_serial_initiator_init(void) {
-    usart_init();
-
-#if defined(SERIAL_USART_PIN_SWAP)
-    uart_config.cr2 |= USART_CR2_SWAP;  // master has swapped TX/RX pins
-#endif
-
-#if defined(USART_REMAP)
-    USART_REMAP
-#endif
-
-    tp_actor              = chThdGetSelfX();
-    uart_config.rxchar_cb = initiator_callback;
-    uartStart(&SERIAL_USART_DRIVER, &uart_config);
 }
 
 /**
