@@ -83,15 +83,27 @@
 #define HANDSHAKE_MAGIC 0x7
 #define HANDSHAKE_START_SEND 0x11
 
-typedef enum { SIGNAL_HANDSHAKE_RECEIVED, SIGNAL_START_SEND } transaction_signal_t;
+// clang-format off
 
-typedef enum { WAITING, RECEIVED_HANDSHAKE, TRANSMITTING } transaction_state_t;
+typedef enum { 
+    SIGNAL_HANDSHAKE_RECEIVED = 1,
+    SIGNAL_XOR_HANDSHAKE_TRANSMITTED_TARGET,
+    SIGNAL_XOR_HANDSHAKE_VALID,
+    SIGNAL_START_SEND,
+    SIGNAL_ERROR
+} transaction_signal_t;
+
+typedef enum { WAITING, TARGET_RECEIVED_HANDSHAKE, HANDSHAKE_SEND_INITIATOR, TRANSMITTING } transaction_state_t;
+
+// clang-format on
 
 static transaction_state_t  current_state = WAITING;
 static atomic_uint_least8_t handshake     = ~0;
 static thread_reference_t   tp_actor      = NULL;
 
 static void handle_transactions_slave(uint8_t sstd_index);
+static void error_callback(UARTDriver* uartp, uartflags_t e);
+static void transfer_complete_callback(UARTDriver* uartp);
 
 /*
  * UART driver configuration structure. We use the blocking DMA enabled API and
@@ -99,11 +111,11 @@ static void handle_transactions_slave(uint8_t sstd_index);
  */
 // clang-format off
 static UARTConfig uart_config = {
-    .txend1_cb = NULL,
+    .txend1_cb = transfer_complete_callback,
     .txend2_cb = NULL,
     .rxend_cb = NULL,
     .rxchar_cb = NULL,
-    .rxerr_cb = NULL,
+    .rxerr_cb = error_callback,
     .timeout_cb = NULL,
     .speed = (SERIAL_USART_SPEED),
     .cr1 = (SERIAL_USART_CR1),
@@ -115,11 +127,39 @@ static UARTConfig uart_config = {
 // CALLBACK FUNCTIONS
 /////////////////////
 
+static void error_callback(UARTDriver* uartp, uartflags_t e) {
+    (void)uartp;
+    (void)e;
+    chSysLockFromISR();
+    switch (current_state) {
+        default:
+            current_state = WAITING;
+            chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_ERROR);
+            break;
+    }
+    chSysUnlockFromISR();
+}
+
+static void transfer_complete_callback(UARTDriver* uartp) {
+    (void)uartp;
+    chSysLockFromISR();
+    switch (current_state) {
+        case TARGET_RECEIVED_HANDSHAKE:
+            chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_XOR_HANDSHAKE_TRANSMITTED_TARGET);
+            break;
+        default:
+            break;
+    }
+    chSysUnlockFromISR();
+}
+
 /*
  * This callback is invoked when a character is received but the application
  * was not ready to receive it, the character is passed as parameter.
  * Receive transaction table index from initiator, which doubles as basic handshake token. */
 static void target_callback(UARTDriver* uartp, uint16_t received_handshake) {
+    (void)uartp;
+    chSysLockFromISR();
     switch (current_state) {
         case WAITING:
             /* Check if received handshake is not a valid transaction id.
@@ -130,22 +170,29 @@ static void target_callback(UARTDriver* uartp, uint16_t received_handshake) {
             if (received_handshake > NUM_TOTAL_TRANSACTIONS) {
                 return;
             }
-            current_state = TRANSMITTING;
-            handshake     = received_handshake;
-            chSysLockFromISR();
+
+            current_state                = TARGET_RECEIVED_HANDSHAKE;
+            static uint8_t handshake_xor = 0;
+            handshake                    = received_handshake;
+
+            /* Send back the handshake which is XORed as a simple checksum,
+            to signal that the slave is ready to receive possible transaction buffers  */
+            handshake_xor = received_handshake ^ HANDSHAKE_MAGIC;
+            uartStartSendI(&SERIAL_USART_DRIVER, sizeof(handshake_xor), &handshake_xor);
+
             /* Wakeup receiving thread to start a transaction. */
             chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_HANDSHAKE_RECEIVED);
-            chSysUnlockFromISR();
             break;
-        default:
+        case TRANSMITTING:
             if (received_handshake == HANDSHAKE_START_SEND) {
-                chSysLockFromISR();
                 /* Wakeup receiving thread to start a transaction. */
                 chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_START_SEND);
-                chSysUnlockFromISR();
             }
             break;
+        default:
+            break;
     }
+    chSysUnlockFromISR();
 }
 
 /*
@@ -153,12 +200,27 @@ static void target_callback(UARTDriver* uartp, uint16_t received_handshake) {
  * was not ready to receive it, the character is passed as parameter.
  * Receive transaction table index from initiator, which doubles as basic handshake token. */
 static void initiator_callback(UARTDriver* uartp, uint16_t received_handshake) {
-    if (received_handshake == HANDSHAKE_START_SEND) {
-        chSysLockFromISR();
-        /* Wakeup receiving thread to start a transaction. */
-        chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_START_SEND);
-        chSysUnlockFromISR();
+    chSysLockFromISR();
+    switch (current_state) {
+        case HANDSHAKE_SEND_INITIATOR:
+            if ((received_handshake ^ HANDSHAKE_MAGIC) == handshake) {
+                /* Wakeup receiving thread to start a transaction. */
+                chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_XOR_HANDSHAKE_VALID);
+            } else {
+                /* Wakeup receiving thread to start a transaction. */
+                chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_ERROR);
+            }
+            break;
+        case TRANSMITTING:
+            if (received_handshake == HANDSHAKE_START_SEND) {
+                /* Wakeup receiving thread to start a transaction. */
+                chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_START_SEND);
+            }
+            break;
+        default:
+            break;
     }
+    chSysUnlockFromISR();
 }
 
 // RECEIVING THREAD
@@ -167,7 +229,7 @@ static void initiator_callback(UARTDriver* uartp, uint16_t received_handshake) {
 /*
  * This thread runs on the slave half and reacts to transactions initiated from the master.
  */
-static THD_WORKING_AREA(waSlaveThread, 2048);
+static THD_WORKING_AREA(waSlaveThread, 1024);
 static THD_FUNCTION(SlaveThread, arg) {
     (void)arg;
     chRegSetThreadName("slave_usart_tx_rx");
@@ -234,18 +296,14 @@ void inline handle_transactions_slave(uint8_t sstd_index) {
     msg_t                     msg         = 0;
     split_transaction_desc_t* trans       = &split_transaction_table[sstd_index];
 
-    /* Send back the handshake which is XORed as a simple checksum,
-     to signal that the slave is ready to receive possible transaction buffers  */
-    sstd_index ^= HANDSHAKE_MAGIC;
-    buffer_size = (size_t)sizeof(sstd_index);
-    msg         = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, &sstd_index, TIME_MS2I(SERIAL_USART_TIMEOUT));
-
-    if (msg != MSG_OK) {
+    if (chEvtWaitAnyTimeout((eventmask_t)(SIGNAL_XOR_HANDSHAKE_TRANSMITTED_TARGET | SIGNAL_ERROR), TIME_MS2I(SERIAL_USART_TIMEOUT)) != SIGNAL_XOR_HANDSHAKE_TRANSMITTED_TARGET) {
         if (trans->status) {
             *trans->status = TRANSACTION_NO_RESPONSE;
         }
         return;
     }
+
+    current_state = TRANSMITTING;
 
     if (trans->initiator2target_buffer_size) {
         const uint8_t flag = HANDSHAKE_START_SEND;
@@ -276,6 +334,9 @@ void inline handle_transactions_slave(uint8_t sstd_index) {
 
     if (trans->target2initiator_buffer_size) {
         if (!chEvtWaitOneTimeout((eventmask_t)SIGNAL_START_SEND, TIME_MS2I(SERIAL_USART_TIMEOUT))) {
+            if (trans->status) {
+                *trans->status = TRANSACTION_NO_RESPONSE;
+            }
             return;
         }
 
@@ -307,32 +368,30 @@ void inline handle_transactions_slave(uint8_t sstd_index) {
  *             TRANSACTION_END in case of success.
  */
 int soft_serial_transaction(int index) {
-    uint8_t sstd_index = index;
+    handshake = index;
 
-    if (sstd_index > NUM_TOTAL_TRANSACTIONS) {
+    if (handshake > NUM_TOTAL_TRANSACTIONS) {
         return TRANSACTION_TYPE_ERROR;
     }
 
-    split_transaction_desc_t* const trans       = &split_transaction_table[sstd_index];
+    split_transaction_desc_t* const trans       = &split_transaction_table[handshake];
     msg_t                           msg         = 0;
-    size_t                          buffer_size = (size_t)sizeof(sstd_index);
+    size_t                          buffer_size = (size_t)sizeof(handshake);
+    current_state                               = HANDSHAKE_SEND_INITIATOR;
 
     /* Send transaction table index to the slave, which doubles as basic handshake token. */
-    uartSendTimeout(&SERIAL_USART_DRIVER, &buffer_size, &sstd_index, TIME_MS2I(SERIAL_USART_TIMEOUT));
+    uartStartSend(&SERIAL_USART_DRIVER, buffer_size, &handshake);
 
-    uint8_t sstd_index_shake = 0xFF;
-    buffer_size              = (size_t)sizeof(sstd_index_shake);
-
-    /* Receive the handshake token from the slave. The token was XORed by the slave as a simple checksum.
-     If the tokens match, the master will start to send and receive possible transaction buffers. */
-    msg = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, &sstd_index_shake, TIME_MS2I(SERIAL_USART_TIMEOUT));
-    if (msg != MSG_OK || (sstd_index_shake != (sstd_index ^ HANDSHAKE_MAGIC))) {
-        dprintln("USART: Handshake Failed");
+    if (chEvtWaitAnyTimeout((eventmask_t)(SIGNAL_XOR_HANDSHAKE_VALID | SIGNAL_ERROR), TIME_MS2I(SERIAL_USART_TIMEOUT)) != SIGNAL_XOR_HANDSHAKE_VALID) {
+        dprintln("USART: Send Handshake Failed");
         return TRANSACTION_NO_RESPONSE;
     }
 
+    current_state = TRANSMITTING;
+
     if (trans->initiator2target_buffer_size) {
         if (!chEvtWaitOneTimeout((eventmask_t)SIGNAL_START_SEND, TIME_MS2I(SERIAL_USART_TIMEOUT))) {
+            dprintln("USART: Waiting for Transmission Start Failed");
             return TRANSACTION_NO_RESPONSE;
         }
 
@@ -352,9 +411,7 @@ int soft_serial_transaction(int index) {
         buffer_size        = (size_t)sizeof(flag);
         msg                = uartSendTimeout(&SERIAL_USART_DRIVER, &buffer_size, &flag, TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
-            if (trans->status) {
-                *trans->status = TRANSACTION_NO_RESPONSE;
-            }
+            dprintln("USART: Sending Transmission Start Failed");
             return TRANSACTION_NO_RESPONSE;
         }
 
