@@ -65,7 +65,5 @@
 
 #define CH_CFG_FACTORY_PIPES TRUE
 
-#define CH_DBG_ENABLE_STACK_CHECK TRUE
-
 #include_next <chconf.h>
 
