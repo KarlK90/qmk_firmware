@@ -101,7 +101,8 @@ static transaction_state_t  current_state = WAITING;
 static atomic_uint_least8_t handshake     = ~0;
 static thread_reference_t   tp_actor      = NULL;
 
-static void handle_transactions_slave(uint8_t sstd_index);
+static void handle_transaction_target(uint8_t sstd_index);
+static int  handle_transaction_initiator(uint8_t sstd_index);
 static void error_callback(UARTDriver* uartp, uartflags_t e);
 static void transfer_complete_callback(UARTDriver* uartp);
 
@@ -176,7 +177,7 @@ static void target_callback(UARTDriver* uartp, uint16_t received_handshake) {
             handshake                    = received_handshake;
 
             /* Send back the handshake which is XORed as a simple checksum,
-            to signal that the slave is ready to receive possible transaction buffers  */
+            to signal that the target is ready to receive possible transaction buffers  */
             handshake_xor = received_handshake ^ HANDSHAKE_MAGIC;
             uartStartSendI(&SERIAL_USART_DRIVER, sizeof(handshake_xor), &handshake_xor);
 
@@ -229,15 +230,15 @@ static void initiator_callback(UARTDriver* uartp, uint16_t received_handshake) {
 /*
  * This thread runs on the slave half and reacts to transactions initiated from the master.
  */
-static THD_WORKING_AREA(waSlaveThread, 1024);
-static THD_FUNCTION(SlaveThread, arg) {
+static THD_WORKING_AREA(waTargetThread, 1024);
+static THD_FUNCTION(TargetThread, arg) {
     (void)arg;
-    chRegSetThreadName("slave_usart_tx_rx");
+    chRegSetThreadName("target_usart_tx_rx");
 
     while (true) {
         /* We sleep as long as there is no handshake waiting for us. */
         chEvtWaitOne((eventmask_t)SIGNAL_HANDSHAKE_RECEIVED);
-        handle_transactions_slave(handshake);
+        handle_transaction_target(handshake);
         current_state = WAITING;
     }
 }
@@ -262,7 +263,7 @@ void soft_serial_target_init(void) {
     USART_REMAP
 #endif
 
-    tp_actor = chThdCreateStatic(waSlaveThread, sizeof(waSlaveThread), HIGHPRIO, SlaveThread, NULL);
+    tp_actor = chThdCreateStatic(waTargetThread, sizeof(waTargetThread), HIGHPRIO, TargetThread, NULL);
 
     uart_config.rxchar_cb = target_callback;
     uartStart(&SERIAL_USART_DRIVER, &uart_config);
@@ -291,7 +292,7 @@ void soft_serial_initiator_init(void) {
  * @brief React to transactions started by the master.
  * This version uses duplex send and receive usart pheriphals and DMA backed transfers.
  */
-void inline handle_transactions_slave(uint8_t sstd_index) {
+void inline handle_transaction_target(uint8_t sstd_index) {
     size_t                    buffer_size = 0;
     msg_t                     msg         = 0;
     split_transaction_desc_t* trans       = &split_transaction_table[sstd_index];
@@ -358,17 +359,8 @@ void inline handle_transactions_slave(uint8_t sstd_index) {
     }
 }
 
-/**
- * @brief Start transaction from the master to the slave.
- * This version uses duplex send and receive usart pheriphals and DMA backed transfers.
- *
- * @param index Transaction Table index of the transaction to start.
- * @return int TRANSACTION_NO_RESPONSE in case of Timeout.
- *             TRANSACTION_TYPE_ERROR in case of invalid transaction index.
- *             TRANSACTION_END in case of success.
- */
-int soft_serial_transaction(int index) {
-    handshake = index;
+static int handle_transaction_initiator(uint8_t sstd_index) {
+    handshake = sstd_index;
 
     if (handshake > NUM_TOTAL_TRANSACTIONS) {
         return TRANSACTION_TYPE_ERROR;
@@ -379,7 +371,7 @@ int soft_serial_transaction(int index) {
     size_t                          buffer_size = (size_t)sizeof(handshake);
     current_state                               = HANDSHAKE_SEND_INITIATOR;
 
-    /* Send transaction table index to the slave, which doubles as basic handshake token. */
+    /* Send transaction table index to the target, which doubles as basic handshake token. */
     uartStartSend(&SERIAL_USART_DRIVER, buffer_size, &handshake);
 
     if (chEvtWaitAnyTimeout((eventmask_t)(SIGNAL_XOR_HANDSHAKE_VALID | SIGNAL_ERROR), TIME_MS2I(SERIAL_USART_TIMEOUT)) != SIGNAL_XOR_HANDSHAKE_VALID) {
@@ -395,7 +387,7 @@ int soft_serial_transaction(int index) {
             return TRANSACTION_NO_RESPONSE;
         }
 
-        /* Send transaction buffer to the slave. If this transaction requires it. */
+        /* Send transaction buffer to the target. If this transaction requires it. */
         buffer_size = (size_t)trans->initiator2target_buffer_size;
         if (buffer_size) {
             msg = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_initiator2target_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
@@ -415,7 +407,7 @@ int soft_serial_transaction(int index) {
             return TRANSACTION_NO_RESPONSE;
         }
 
-        /* Receive transaction buffer from the slave. If this transaction requires it. */
+        /* Receive transaction buffer from the target. If this transaction requires it. */
         buffer_size = (size_t)trans->target2initiator_buffer_size;
         msg         = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_target2initiator_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
@@ -425,4 +417,19 @@ int soft_serial_transaction(int index) {
     }
 
     return TRANSACTION_END;
+}
+
+/**
+ * @brief Start transaction from initiator to target.
+ * This version uses duplex send and receive usart pheriphals and DMA backed transfers.
+ *
+ * @param index Transaction Table index of the transaction to start.
+ * @return int TRANSACTION_NO_RESPONSE in case of Timeout.
+ *             TRANSACTION_TYPE_ERROR in case of invalid transaction index.
+ *             TRANSACTION_END in case of success.
+ */
+int soft_serial_transaction(int index) {
+    int result    = handle_transaction_initiator(index);
+    current_state = WAITING;
+    return result;
 }
