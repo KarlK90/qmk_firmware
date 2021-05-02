@@ -1,0 +1,62 @@
+@startuml
+title Usart full duplex driver.
+skinparam sequenceMessageAlign center
+note across: Sending always uses DMA. Receiving of tokens is done using interrupts\nin the rxchar callback functions. Receiving of the transaction buffers is\nalways done using DMA.
+group Handshake
+    Initiator -> Target: Handshake token (IRQ)
+    Target --> Initiator: XOR'ed Handshake token (IRQ)
+end
+|||
+group Send buffer [initiator2target_buffer_size > 0]
+    Target -> Initiator: 'Start Send' token (IRQ)
+    Initiator --> Target: Transaction buffer (DMA)
+end
+|||
+group Callback [slave_callback != NULL]
+    Target -> Target: Execute callback functions.
+end
+|||
+group Send buffer [target2initiator_buffer_size > 0]
+    Initiator -> Target: 'Start Send' token (IRQ)
+    Target --> Initiator: Transaction buffer (DMA)
+end
+@enduml
+
+@startuml
+title Initiator states.
+[*] --> Idle
+Idle --> HandshakeSend
+HandshakeSend --> XORHandshakeReceived
+XORHandshakeReceived --> WaitForStartSend
+WaitForStartSend --> SendBuffer
+SendBuffer --> SendStartSend
+SendStartSend --> ReceiveBuffer
+ReceiveBuffer --> Idle 
+HandshakeSend --> Error
+XORHandshakeReceived --> Error
+WaitForStartSend --> Error
+SendBuffer --> Error
+SendStartSend --> Error
+ReceiveBuffer --> Error
+Error --> Idle
+@enduml
+
+@startuml
+title Target states.
+[*] --> Waiting
+Waiting --> HandshakeReceived
+HandshakeReceived --> SendXORHandshake
+SendXORHandshake --> SendStartSend
+SendStartSend --> ReceiveBuffer
+ReceiveBuffer --> ProcessCallback
+ProcessCallback --> WaitForStartSend
+WaitForStartSend --> SendBuffer
+SendBuffer --> Waiting
+HandshakeReceived --> Error
+SendXORHandshake --> Error
+SendStartSend --> Error
+ReceiveBuffer --> Error
+WaitForStartSend --> Error
+SendBuffer --> Error
+Error -> Waiting
+@enduml
