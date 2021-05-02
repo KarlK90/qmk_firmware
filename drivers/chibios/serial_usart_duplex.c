@@ -113,10 +113,10 @@ typedef enum {
 
 // clang-format on
 
-static transaction_state_t  initiator_state = IDLE;
-static transaction_state_t  target_state    = WAITING;
-static atomic_uint_least8_t handshake       = ~0;
-static thread_reference_t   tp_actor        = NULL;
+static transaction_state_t initiator_state = IDLE;
+static transaction_state_t target_state    = WAITING;
+static uint8_t             handshake       = ~0;
+static thread_reference_t  tp_actor        = NULL;
 
 static int handle_transaction_target(split_transaction_desc_t* trans);
 static int handle_transaction_initiator(uint8_t sstd_index);
@@ -183,7 +183,7 @@ static void target_rxchar_callback(UARTDriver* uartp, uint16_t received_token) {
              * subsequent wakeups of the receiving thread, which is a costly operation. */
             if (received_token >= NUM_TOTAL_TRANSACTIONS) {
                 /* Do not set target_state to TRANSACTION_ERROR; */
-                return;
+                break;
             }
             target_state = HANDSHAKE_RECEIVED;
             handshake    = received_token;
@@ -244,7 +244,7 @@ static void initiator_rxchar_callback(UARTDriver* uartp, uint16_t received_token
 /*
  * This thread runs on the slave half and reacts to transactions initiated from the master.
  */
-static THD_WORKING_AREA(waTargetThread, 1024);
+static THD_WORKING_AREA(waTargetThread, 2048);
 static THD_FUNCTION(TargetThread, arg) {
     chRegSetThreadName("target_usart_tx_rx");
 
@@ -261,6 +261,8 @@ static THD_FUNCTION(TargetThread, arg) {
                 *trans->status = TRANSACTION_ACCEPTED;
             }
         }
+
+        /* Reset state machine, by clearing all flags and setting state to waiting. */
         chEvtWaitAllTimeout(ALL_EVENTS, TIME_IMMEDIATE);
         target_state = WAITING;
     }
@@ -289,7 +291,7 @@ void soft_serial_target_init(void) {
     tp_actor = chThdCreateStatic(waTargetThread, sizeof(waTargetThread), HIGHPRIO, TargetThread, NULL);
 
     uart_config.rxchar_cb = target_rxchar_callback;
-    uart_config.txend1_cb = target_transfer_complete_callback;
+    uart_config.txend2_cb = target_transfer_complete_callback;
     uartStart(&SERIAL_USART_DRIVER, &uart_config);
 }
 
@@ -306,7 +308,7 @@ void soft_serial_initiator_init(void) {
 
     tp_actor              = chThdGetSelfX();
     uart_config.rxchar_cb = initiator_rxchar_callback;
-    uart_config.txend1_cb = initiator_transfer_complete_callback;
+    uart_config.txend2_cb = initiator_transfer_complete_callback;
     uartStart(&SERIAL_USART_DRIVER, &uart_config);
 }
 
@@ -330,8 +332,9 @@ static int inline handle_transaction_target(split_transaction_desc_t* trans) {
         target_state              = SEND_START_SEND;
         static const uint8_t flag = TOKEN_START_SEND;
         buffer_size               = (size_t)sizeof(flag);
-        msg                       = uartSendTimeout(&SERIAL_USART_DRIVER, &buffer_size, &flag, TIME_MS2I(SERIAL_USART_TIMEOUT));
+        msg                       = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, &flag, TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
+            target_state = TRANSACTION_ERROR;
             return TRANSACTION_NO_RESPONSE;
         }
 
@@ -340,6 +343,7 @@ static int inline handle_transaction_target(split_transaction_desc_t* trans) {
         buffer_size  = (size_t)trans->initiator2target_buffer_size;
         msg          = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_initiator2target_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
+            target_state = TRANSACTION_ERROR;
             return TRANSACTION_NO_RESPONSE;
         }
     }
@@ -353,14 +357,16 @@ static int inline handle_transaction_target(split_transaction_desc_t* trans) {
     if (trans->target2initiator_buffer_size) {
         target_state = WAIT_FOR_START_SEND;
         if (chEvtWaitAnyTimeout((eventmask_t)(SIGNAL_START_SEND | SIGNAL_ERROR), TIME_MS2I(SERIAL_USART_TIMEOUT)) != SIGNAL_START_SEND) {
+            target_state = TRANSACTION_ERROR;
             return TRANSACTION_NO_RESPONSE;
         }
 
         /* Send transaction buffer to the master. If this transaction requires it. */
         target_state = SEND_BUFFER;
         buffer_size  = (size_t)trans->target2initiator_buffer_size;
-        msg          = uartSendTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_target2initiator_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
+        msg          = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_target2initiator_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
+            target_state = TRANSACTION_ERROR;
             return TRANSACTION_NO_RESPONSE;
         }
     }
@@ -384,6 +390,7 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
 
     if (chEvtWaitAnyTimeout((eventmask_t)(SIGNAL_XOR_HANDSHAKE_VALID | SIGNAL_ERROR), TIME_MS2I(SERIAL_USART_TIMEOUT)) != SIGNAL_XOR_HANDSHAKE_VALID) {
         dprintln("USART: Send Handshake Failed");
+        target_state = TRANSACTION_ERROR;
         return TRANSACTION_NO_RESPONSE;
     }
 
@@ -391,15 +398,17 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
         initiator_state = WAIT_FOR_START_SEND;
         if (chEvtWaitAnyTimeout((eventmask_t)(SIGNAL_START_SEND | SIGNAL_ERROR), TIME_MS2I(SERIAL_USART_TIMEOUT)) != SIGNAL_START_SEND) {
             dprintln("USART: Waiting for Transmission Start Failed");
+            target_state = TRANSACTION_ERROR;
             return TRANSACTION_NO_RESPONSE;
         }
 
-        initiator_state = SEND_BUFFER;
         /* Send transaction buffer to the target. If this transaction requires it. */
-        buffer_size = (size_t)trans->initiator2target_buffer_size;
-        msg         = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_initiator2target_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
+        initiator_state = SEND_BUFFER;
+        buffer_size     = (size_t)trans->initiator2target_buffer_size;
+        msg             = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_initiator2target_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
             dprintln("USART: Send Failed");
+            target_state = TRANSACTION_ERROR;
             return TRANSACTION_NO_RESPONSE;
         }
     }
@@ -408,18 +417,20 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
         initiator_state           = SEND_START_SEND;
         static const uint8_t flag = TOKEN_START_SEND;
         buffer_size               = (size_t)sizeof(flag);
-        msg                       = uartSendTimeout(&SERIAL_USART_DRIVER, &buffer_size, &flag, TIME_MS2I(SERIAL_USART_TIMEOUT));
+        msg                       = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, &flag, TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
             dprintln("USART: Sending Transmission Start Failed");
+            target_state = TRANSACTION_ERROR;
             return TRANSACTION_NO_RESPONSE;
         }
 
-        initiator_state = RECEIVE_BUFFER;
         /* Receive transaction buffer from the target. If this transaction requires it. */
-        buffer_size = (size_t)trans->target2initiator_buffer_size;
-        msg         = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_target2initiator_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
+        initiator_state = RECEIVE_BUFFER;
+        buffer_size     = (size_t)trans->target2initiator_buffer_size;
+        msg             = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_target2initiator_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
             dprintln("USART: Receive Failed");
+            target_state = TRANSACTION_ERROR;
             return TRANSACTION_NO_RESPONSE;
         }
     }
@@ -438,6 +449,7 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
  */
 int soft_serial_transaction(int index) {
     int result = handle_transaction_initiator(index);
+    /* Reset state machine, by clearing all flags and setting state to idle. */
     chEvtWaitAllTimeout(ALL_EVENTS, TIME_IMMEDIATE);
     initiator_state = IDLE;
     return result;
