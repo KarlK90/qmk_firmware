@@ -146,8 +146,7 @@ static UARTConfig uart_config = {
 static void target_transfer_complete_callback(UARTDriver* uartp) {
     chSysLockFromISR();
     switch (target_state) {
-        case HANDSHAKE_RECEIVED:
-            target_state = SEND_XOR_HANDSHAKE;
+        case SEND_XOR_HANDSHAKE:
             chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_XOR_HANDSHAKE_TRANSMITTED);
             break;
         default:
@@ -191,6 +190,7 @@ static void target_rxchar_callback(UARTDriver* uartp, uint16_t received_token) {
             to signal that the target is ready to receive possible transaction buffers  */
             static uint8_t handshake_xor = 0;
             handshake_xor                = received_token ^ TOKEN_HANDSHAKE_MAGIC;
+            target_state = SEND_XOR_HANDSHAKE;
             uartStartSendI(&SERIAL_USART_DRIVER, sizeof(handshake_xor), &handshake_xor);
             chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_HANDSHAKE_RECEIVED);
             break;
@@ -252,6 +252,7 @@ static THD_FUNCTION(TargetThread, arg) {
         /* We sleep as long as there is no handshake waiting for us. */
         chEvtWaitOne((eventmask_t)SIGNAL_HANDSHAKE_RECEIVED);
         split_transaction_desc_t* trans = &split_transaction_table[handshake];
+        
         if (handle_transaction_target(trans) != TRANSACTION_END) {
             if (trans->status) {
                 *trans->status = TRANSACTION_NO_RESPONSE;
