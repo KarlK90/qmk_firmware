@@ -35,11 +35,11 @@
 #define DEBUG_MATRIX_SCAN_RATE
 #define DEBOUNCE 5
 #define BUSY_WAIT
-#define BUSY_WAIT_INSTRUCTIONS 20
+#define BUSY_WAIT_INSTRUCTIONS 10
 #if defined(__riscv)
-#    define GPIO_INPUT_PIN_DELAY 4
+#    define GPIO_INPUT_PIN_DELAY 2
 #elif defined(__arm__)
-#    define GPIO_INPUT_PIN_DELAY 4
+#    define GPIO_INPUT_PIN_DELAY 2
 #endif
 
 #define LAYER_STATE_8BIT
@@ -104,7 +104,7 @@
 #define SERIAL_USART_DRIVER UARTD3
 #define SERIAL_USE_MULTI_TRANSACTION
 #define SERIAL_USART_TIMEOUT 15
-
+#define SERIAL_USART_CR2 0x0 // 1 stop bit is enough 
 #if defined(__riscv)
 #    define SERIAL_USART_SPEED (GD32_PCLK1 >> 4)  // Use highest possible baudrate.
 #elif defined(__arm__)
