@@ -77,6 +77,19 @@ bool get_permissive_hold(uint16_t keycode, keyrecord_t *record) {
 
 #endif
 
+#if defined(IGNORE_MOD_TAP_INTERRUPT_PER_KEY)
+bool get_ignore_mod_tap_interrupt(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case LSFT_T(KC_SPC):
+            return false;
+        case RSFT_T(KC_SPC):
+            return false;
+        default:
+            return true;
+    }
+}
+#endif
+
 #if defined(ENCODER_ENABLE)
 void encoder_update_user(uint8_t index, bool clockwise) {
     layer_state_t current_state = get_highest_layer(layer_state);
