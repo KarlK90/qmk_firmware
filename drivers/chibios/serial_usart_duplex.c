@@ -190,7 +190,7 @@ static void target_rxchar_callback(UARTDriver* uartp, uint16_t received_token) {
             to signal that the target is ready to receive possible transaction buffers  */
             static uint8_t handshake_xor = 0;
             handshake_xor                = received_token ^ TOKEN_HANDSHAKE_MAGIC;
-            target_state = SEND_XOR_HANDSHAKE;
+            target_state                 = SEND_XOR_HANDSHAKE;
             uartStartSendI(&SERIAL_USART_DRIVER, sizeof(handshake_xor), &handshake_xor);
             chEvtSignalI(tp_actor, (eventmask_t)SIGNAL_HANDSHAKE_RECEIVED);
             break;
@@ -252,7 +252,7 @@ static THD_FUNCTION(TargetThread, arg) {
         /* We sleep as long as there is no handshake waiting for us. */
         chEvtWaitOne((eventmask_t)SIGNAL_HANDSHAKE_RECEIVED);
         split_transaction_desc_t* trans = &split_transaction_table[handshake];
-        
+
         if (handle_transaction_target(trans) != TRANSACTION_END) {
             if (trans->status) {
                 *trans->status = TRANSACTION_NO_RESPONSE;
@@ -376,12 +376,7 @@ static int inline handle_transaction_target(split_transaction_desc_t* trans) {
 }
 
 static int inline handle_transaction_initiator(uint8_t sstd_index) {
-    handshake = sstd_index;
-
-    if (handshake >= NUM_TOTAL_TRANSACTIONS) {
-        return TRANSACTION_TYPE_ERROR;
-    }
-
+    handshake                                   = sstd_index;
     split_transaction_desc_t* const trans       = &split_transaction_table[handshake];
     msg_t                           msg         = 0;
     size_t                          buffer_size = (size_t)sizeof(handshake);
@@ -390,16 +385,16 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
     uartStartSend(&SERIAL_USART_DRIVER, buffer_size, &handshake);
 
     if (chEvtWaitAnyTimeout((eventmask_t)(SIGNAL_XOR_HANDSHAKE_VALID | SIGNAL_ERROR), TIME_MS2I(SERIAL_USART_TIMEOUT)) != SIGNAL_XOR_HANDSHAKE_VALID) {
-        dprintln("USART: Send Handshake Failed");
         target_state = TRANSACTION_ERROR;
+        dprintln("USART: Send Handshake Failed");
         return TRANSACTION_NO_RESPONSE;
     }
 
     if (trans->initiator2target_buffer_size) {
         initiator_state = WAIT_FOR_START_SEND;
         if (chEvtWaitAnyTimeout((eventmask_t)(SIGNAL_START_SEND | SIGNAL_ERROR), TIME_MS2I(SERIAL_USART_TIMEOUT)) != SIGNAL_START_SEND) {
-            dprintln("USART: Waiting for Transmission Start Failed");
             target_state = TRANSACTION_ERROR;
+            dprintln("USART: Waiting for Transmission Start Failed");
             return TRANSACTION_NO_RESPONSE;
         }
 
@@ -408,8 +403,8 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
         buffer_size     = (size_t)trans->initiator2target_buffer_size;
         msg             = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_initiator2target_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
-            dprintln("USART: Send Failed");
             target_state = TRANSACTION_ERROR;
+            dprintln("USART: Send Failed");
             return TRANSACTION_NO_RESPONSE;
         }
     }
@@ -420,8 +415,8 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
         buffer_size               = (size_t)sizeof(flag);
         msg                       = uartSendFullTimeout(&SERIAL_USART_DRIVER, &buffer_size, &flag, TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
-            dprintln("USART: Sending Transmission Start Failed");
             target_state = TRANSACTION_ERROR;
+            dprintln("USART: Sending Transmission Start Failed");
             return TRANSACTION_NO_RESPONSE;
         }
 
@@ -430,8 +425,8 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
         buffer_size     = (size_t)trans->target2initiator_buffer_size;
         msg             = uartReceiveTimeout(&SERIAL_USART_DRIVER, &buffer_size, split_trans_target2initiator_buffer(trans), TIME_MS2I(SERIAL_USART_TIMEOUT));
         if (msg != MSG_OK) {
-            dprintln("USART: Receive Failed");
             target_state = TRANSACTION_ERROR;
+            dprintln("USART: Receive Failed");
             return TRANSACTION_NO_RESPONSE;
         }
     }
@@ -449,6 +444,10 @@ static int inline handle_transaction_initiator(uint8_t sstd_index) {
  *             TRANSACTION_END in case of success.
  */
 int soft_serial_transaction(int index) {
+    if (index >= NUM_TOTAL_TRANSACTIONS) {
+        return TRANSACTION_TYPE_ERROR;
+    }
+
     int result = handle_transaction_initiator(index);
     /* Reset state machine, by clearing all flags and setting state to idle. */
     chEvtWaitAllTimeout(ALL_EVENTS, TIME_IMMEDIATE);
