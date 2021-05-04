@@ -113,8 +113,8 @@ typedef enum {
 
 // clang-format on
 
-static transaction_state_t initiator_state = IDLE;
-static transaction_state_t target_state    = WAITING;
+static _Atomic transaction_state_t initiator_state = IDLE;
+static _Atomic transaction_state_t target_state    = WAITING;
 static uint8_t             handshake       = ~0;
 static thread_reference_t  tp_actor        = NULL;
 
