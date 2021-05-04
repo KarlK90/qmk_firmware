@@ -62,21 +62,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 // clang-format on
 
-#if defined(PERMISSIVE_HOLD_PER_KEY)
-
-bool get_permissive_hold(uint16_t keycode, keyrecord_t *record) {
-    switch (keycode) {
-        case LSFT_T(KC_SPC):
-            return true;
-        case RSFT_T(KC_SPC):
-            return true;
-        default:
-            return false;
-    }
-}
-
-#endif
-
 #if defined(IGNORE_MOD_TAP_INTERRUPT_PER_KEY)
 bool get_ignore_mod_tap_interrupt(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
@@ -86,6 +71,19 @@ bool get_ignore_mod_tap_interrupt(uint16_t keycode, keyrecord_t *record) {
             return false;
         default:
             return true;
+    }
+}
+#endif
+
+#if defined(HOLD_ON_OTHER_KEY_PRESS_PER_KEY)
+bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case LSFT_T(KC_SPC):
+            return true;
+        case RSFT_T(KC_SPC):
+            return true;
+        default:
+            return false;
     }
 }
 #endif
