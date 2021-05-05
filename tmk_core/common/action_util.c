@@ -272,53 +272,30 @@ void send_keyboard_report_immediate(void) {
     }
 }
 
-#if defined(NKRO_ENABLE)
-#    define MAX_KEYCODES_PER_RECORD KEYBOARD_REPORT_BITS
-#else
-#    define MAX_KEYCODES_PER_RECORD KEYBOARD_REPORT_KEYS
-#endif
-
 /**
  * @brief Send all unregister keycodes which have been recorded during keycode processing.
  *
  */
 void send_keyboard_report_buffered_unregister_keys(void) {
     if (unregister_keycodes.len > 0) {
-        size_t          added_keys = 0;
-        uint16_t* const delay      = &unregister_keycodes.tap_delay;
-
         while (unregister_keycodes.len > 0) {
-            if (added_keys == MAX_KEYCODES_PER_RECORD) {
-                if (*delay > 0) {
-#if defined(__AVR__)
-                    for (uint16_t i = *delay; i > 0; i--) {
-                        wait_ms(1);
-                    }
-#else
-                    wait_ms(*delay);
-#endif
-                }
-
-                send_keyboard_report_immediate();
-                *delay     = 0;
-                added_keys = 0;
-            }
-            unregister_keycodes.len -= 1;
+            unregister_keycodes.len--;
             unregister_code_deferred(unregister_keycodes.buffer[unregister_keycodes.len]);
-            added_keys += 1;
         }
 
-        if (*delay > 0) {
+        if (unregister_keycodes.tap_delay != 0) {
 #if defined(__AVR__)
-            for (uint16_t i = *delay; i > 0; i--) {
+            for (uint16_t i = unregister_keycodes.tap_delay; i > 0; i--) {
                 wait_ms(1);
             }
 #else
-            wait_ms(*delay);
+            wait_ms(unregister_keycodes.tap_delay);
 #endif
+            unregister_keycodes.tap_delay = 0;
         }
 
-        *delay = 0;
+        /* reset unregister_keycodes buffer. */
+        unregister_keycodes.len = 0;
         send_keyboard_report_immediate();
     }
 }
