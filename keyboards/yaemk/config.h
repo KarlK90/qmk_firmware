@@ -29,20 +29,17 @@
     { A8, B12, A6, A5, A1 }
 #define MATRIX_COL_PINS_RIGHT \
     { A2, A7, B0, B1, B2, B13, B14, B15 }
-#define MATRIX_ROW_PINS_RIGHT \
-    { A8, B12, A6, A5, A1 }
 #define DIODE_DIRECTION COL2ROW
 #define DEBUG_MATRIX_SCAN_RATE
 #define DEBOUNCE 5
 #define BUSY_WAIT
 #define BUSY_WAIT_INSTRUCTIONS 10
 #if defined(__riscv)
-#    define GPIO_INPUT_PIN_DELAY 2
+#    define GPIO_INPUT_PIN_DELAY 4
 #elif defined(__arm__)
-#    define GPIO_INPUT_PIN_DELAY 2
+#    define GPIO_INPUT_PIN_DELAY 4
 #endif
 
-#define LAYER_STATE_8BIT
 #define QMK_KEYS_PER_SCAN 8
 
 /* ENCODER CONFIG */
@@ -104,11 +101,11 @@
 #define SERIAL_USART_DRIVER UARTD3
 #define SERIAL_USE_MULTI_TRANSACTION
 #define SERIAL_USART_TIMEOUT 15
-#define SERIAL_USART_CR2 0x0 // 1 stop bit is enough 
+#define SERIAL_USART_CR2 0x0  // 1 stop bit is enough
 #if defined(__riscv)
 #    define SERIAL_USART_SPEED (GD32_PCLK1 >> 4)  // Use highest possible baudrate.
 #elif defined(__arm__)
-#    define SERIAL_USART_SPEED (STM32_PCLK1 >> 4)                                             // Use highest possible baudrate.
+#    define SERIAL_USART_SPEED (STM32_PCLK1 >> 4)  // Use highest possible baudrate.
 #    define SERIAL_USART_CR1 (USART_CR1_PCE | USART_CR1_PS | USART_CR1_M0 | USART_CR1_OVER8)
 #endif
 

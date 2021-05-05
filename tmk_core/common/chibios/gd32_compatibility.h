@@ -1,7 +1,7 @@
 #pragma once
 
 /* GD32VF103 has the same API as STM32F103, but uses different names for literally the same thing.
- * As of 4.7.2021 QMK is tailored to use STM32 defines/names, for compatibility sake 
+ * As of 4.7.2021 QMK is tailored to use STM32 defines/names, for compatibility sake
  * we just redefine the GD32 names. */
 
 // Close your eyes kids.
@@ -28,8 +28,17 @@
 #define cr3 ctl2
 
 // Serial USART redefines.
-#define SERIAL_USART_CR1 (USART_CTL0_PCEN | USART_CTL0_PM | USART_CTL0_WL)  // parity enable, odd parity, 9 bit length
-#define SERIAL_USART_CR2 (USART_CTL1_STB_1)                                 // 2 stop bits
-#define SERIAL_USART_CR3 0x0
+#if !defined(SERIAL_USART_CR1)
+#    define SERIAL_USART_CR1 (USART_CTL0_PCEN | USART_CTL0_PM | USART_CTL0_WL)  // parity enable, odd parity, 9 bit length
+#endif
+
+#if !defined(SERIAL_USART_CR2)
+#    define SERIAL_USART_CR2 (USART_CTL1_STB_1)  // 2 stop bits
+#endif
+
+#if !defined(SERIAL_USART_CR3)
+#    define SERIAL_USART_CR3 0x0
+#endif
+
 #define CCR CHCV
 #define dier dmainten
