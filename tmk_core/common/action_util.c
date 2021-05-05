@@ -284,43 +284,41 @@ void send_keyboard_report_immediate(void) {
  */
 void send_keyboard_report_buffered_unregister_keys(void) {
     if (unregister_keycodes.len > 0) {
-        size_t added_keys = 0;
+        size_t          added_keys = 0;
+        uint16_t* const delay      = &unregister_keycodes.tap_delay;
+
         while (unregister_keycodes.len > 0) {
             if (added_keys == MAX_KEYCODES_PER_RECORD) {
-                if (unregister_keycodes.tap_delay > 0) {
-                    if (unregister_keycodes.tap_delay == TAP_CODE_DELAY) {
-                        wait_ms(TAP_CODE_DELAY);
-                    } else if (unregister_keycodes.tap_delay == TAP_HOLD_CAPS_DELAY) {
-                        wait_ms(TAP_HOLD_CAPS_DELAY);
+                if (*delay > 0) {
+#if defined(__AVR__)
+                    for (uint16_t i = *delay; i > 0; i--) {
+                        wait_ms(1);
                     }
-#if !defined(__AVR)
-                    else {
-                        wait_ms(unregister_keycodes.tap_delay);
-                    }
+#else
+                    wait_ms(*delay);
 #endif
                 }
 
                 send_keyboard_report_immediate();
-                unregister_keycodes.tap_delay = 0;
-                added_keys                    = 0;
+                *delay     = 0;
+                added_keys = 0;
             }
             unregister_keycodes.len -= 1;
             unregister_code_deferred(unregister_keycodes.buffer[unregister_keycodes.len]);
             added_keys += 1;
         }
-        if (unregister_keycodes.tap_delay > 0) {
-            if (unregister_keycodes.tap_delay == TAP_CODE_DELAY) {
-                wait_ms(TAP_CODE_DELAY);
-            } else if (unregister_keycodes.tap_delay == TAP_HOLD_CAPS_DELAY) {
-                wait_ms(TAP_HOLD_CAPS_DELAY);
+
+        if (*delay > 0) {
+#if defined(__AVR__)
+            for (uint16_t i = *delay; i > 0; i--) {
+                wait_ms(1);
             }
-#if !defined(__AVR)
-            else {
-                wait_ms(unregister_keycodes.tap_delay);
-            }
+#else
+            wait_ms(*delay);
 #endif
         }
-        unregister_keycodes.tap_delay = 0;
+
+        *delay = 0;
         send_keyboard_report_immediate();
     }
 }

@@ -851,18 +851,17 @@ void unregister_code_buffered(uint8_t code, uint16_t delay) {
         unregister_keycodes.tap_delay = delay;
     }
 #else
+
     if (delay > 0) {
-        if (delay == TAP_CODE_DELAY) {
-            wait_ms(TAP_CODE_DELAY);
-        } else if (delay == TAP_HOLD_CAPS_DELAY) {
-            wait_ms(TAP_HOLD_CAPS_DELAY);
+#    if defined(__AVR__)
+        for (uint16_t i = delay; i > 0; i--) {
+            wait_ms(1);
         }
-#    if !defined(__AVR)
-        else {
-            wait_ms(delay);
-        }
+#    else
+        wait_ms(delay);
 #    endif
     }
+
     unregister_code_P(code, &send_keyboard_report);
 #endif
 }
@@ -934,9 +933,13 @@ void unregister_code_P(uint8_t code, void send_report_f(void)) {
  */
 void tap_code_delay(uint8_t code, uint16_t delay) {
     register_code(code);
+#if defined(__AVR__)
     for (uint16_t i = delay; i > 0; i--) {
         wait_ms(1);
     }
+#else
+    wait_ms(delay);
+#endif
     unregister_code(code);
 }
 
