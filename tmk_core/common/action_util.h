@@ -42,9 +42,9 @@ typedef struct {
     uint16_t tap_delay;
 } unregister_keycodes_t;
 
-extern report_keyboard_t     keyboard_report;
-extern bool                  keyboard_report_has_deferred_keycodes;
-extern unregister_keycodes_t unregister_keycodes;
+extern report_keyboard_t              keyboard_report;
+extern bool                           keyboard_report_has_deferred_keycodes;
+extern volatile unregister_keycodes_t unregister_keycodes;
 
 void send_keyboard_report_deferred(void);
 void send_keyboard_report(void);

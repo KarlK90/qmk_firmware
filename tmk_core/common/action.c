@@ -31,7 +31,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 static void register_code_P(uint8_t code, void send_report_f(void));
 static void unregister_code_P(uint8_t code, void send_report_f(void));
 
-extern unregister_keycodes_t unregister_keycodes;
+extern volatile unregister_keycodes_t unregister_keycodes;
 
 #ifdef BACKLIGHT_ENABLE
 #    include "backlight.h"

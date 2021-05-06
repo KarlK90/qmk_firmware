@@ -41,7 +41,7 @@ static int8_t cb_count = 0;
 
 report_keyboard_t     keyboard_report;
 bool                  keyboard_report_has_deferred_keycodes;
-unregister_keycodes_t unregister_keycodes;
+volatile unregister_keycodes_t unregister_keycodes;
 
 extern inline void add_key(uint8_t key);
 extern inline void del_key(uint8_t key);
