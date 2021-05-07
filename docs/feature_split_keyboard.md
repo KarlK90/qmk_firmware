@@ -191,6 +191,12 @@ If you're having issues with serial communication, you can change this value, as
 * **`5`**: about 20kbps
 
 ```c
+#define FORCED_SYNC_THROTTLE_MS 100
+```
+
+This sets the maximum number of milliseconds before forcing a synchronization of data from master to slave. Under normal circumstances this sync occurs whenever the data _changes_, for safety a data transfer occurs after this number of milliseconds if no change has been detected since the last sync. 
+
+```c
 #define SPLIT_TRANSPORT_MIRROR
 ```
 

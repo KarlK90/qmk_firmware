@@ -308,6 +308,9 @@ There are a few different ways to set handedness for split keyboards (listed in 
 * `#define SPLIT_USB_TIMEOUT_POLL 10`
   * Poll frequency when detecting master/slave when using `SPLIT_USB_DETECT`
 
+* `#define FORCED_SYNC_THROTTLE_MS 100`
+  * Deadline for synchronizing data from master to slave when using the QMK-provided split transport.
+
 * `#define SPLIT_TRANSPORT_MIRROR`
   * Mirrors the master-side matrix on the slave when using the QMK-provided split transport.
 

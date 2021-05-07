@@ -94,8 +94,8 @@ static i2c_status_t i2c_start_impl(uint8_t address, uint16_t timeout) {
 
 i2c_status_t i2c_start(uint8_t address, uint16_t timeout) {
     // Retry i2c_start_impl a bunch times in case the remote side has interrupts disabled.
-    uint16_t timeout_timer = timer_read();
-    uint16_t time_slice    = MAX(1, (timeout == (I2C_TIMEOUT_INFINITE)) ? 5 : (timeout / (I2C_START_RETRY_COUNT)));  // if it's infinite, wait 1ms between attempts, otherwise split up the entire timeout into the number of retries
+    uint16_t     timeout_timer = timer_read();
+    uint16_t     time_slice    = MAX(1, (timeout == (I2C_TIMEOUT_INFINITE)) ? 5 : (timeout / (I2C_START_RETRY_COUNT)));  // if it's infinite, wait 1ms between attempts, otherwise split up the entire timeout into the number of retries
     i2c_status_t status;
     do {
         status = i2c_start_impl(address, time_slice);
