@@ -8,8 +8,7 @@ QMK Firmware has a generic implementation that is usable by any board, as well a
 
 For this, we will mostly be talking about the generic implementation used by the Let's Split and other keyboards. 
 
-!> ARM is not yet fully supported for Split Keyboards and has many limitations. Progress is being made, but we have not yet reached 100% feature parity.
-
+!> ARM split is almost completely functional, and supports most QMK subsystems using the 'serial' and 'serial_usart' drivers. I2C slave is currently unsupported, and as such we have not yet reached 100% feature parity with AVR.
 
 ## Compatibility Overview
 
@@ -46,7 +45,7 @@ However, USB cables, SATA cables, and even just 4 wires have been known to be us
 
 !> Using USB cables for communication between the controllers works just fine, but the connector could be mistaken for a normal USB connection and potentially short out the keyboard, depending on how it's wired.  For this reason, they are not recommended for connecting split keyboards.  
 
-### Serial Wiring
+### Serial Wiring (AVR)
 
 The 3 wires of the TRS/TRRS cable need to connect GND, VCC, and D0/D1/D2/D3 (aka PD0/PD1/PD2/PD3) between the two Pro Micros. 
 
@@ -55,7 +54,7 @@ The 3 wires of the TRS/TRRS cable need to connect GND, VCC, and D0/D1/D2/D3 (aka
 <img alt="sk-pd0-connection-mono" src="https://user-images.githubusercontent.com/2170248/92296488-28e9ad80-ef70-11ea-98be-c40cb48a0319.JPG" width="48%"/>
 <img alt="sk-pd2-connection-mono" src="https://user-images.githubusercontent.com/2170248/92296490-2d15cb00-ef70-11ea-801f-5ace313013e6.JPG" width="48%"/>
 
-### I<sup>2</sup>C Wiring
+### I<sup>2</sup>C Wiring (AVR)
 
 The 4 wires of the TRRS cable need to connect GND, VCC, and SCL and SDA (aka PD0/pin 3 and PD1/pin 2, respectively) between the two Pro Micros. 
 
@@ -168,7 +167,7 @@ Because not every split keyboard is identical, there are a number of additional 
 #define USE_I2C
 ```
 
-This enables I<sup>2</sup>C support for split keyboards. This isn't strictly for communication, but can be used for OLED or other I<sup>2</sup>C-based devices. 
+This configures the use of I<sup>2</sup>C support for split keyboard transport (AVR only).  
 
 ```c
 #define SOFT_SERIAL_PIN D0
@@ -192,20 +191,104 @@ If you're having issues with serial communication, you can change this value, as
 * **`5`**: about 20kbps
 
 ```c
-#define SPLIT_MODS_ENABLE
-```
-
-This enables transmitting modifier state (normal, weak and oneshot) to the non
-primary side of the split keyboard.  This adds a few bytes of data to the split
-communication protocol and may impact the matrix scan speed when enabled.
-The purpose of this feature is to support cosmetic use of modifer state (e.g.
-displaying status on an OLED screen).
-
-```c
 #define SPLIT_TRANSPORT_MIRROR
 ```
 
-This mirrors the master side matrix to the slave side for features that react or require knowledge of master side key presses on the slave side.  This adds a few bytes of data to the split communication protocol and may impact the matrix scan speed when enabled. The purpose of this feature is to support cosmetic use of key events (e.g. RGB reacting to Keypresses).
+This mirrors the master side matrix to the slave side for features that react or require knowledge of master side key presses on the slave side. The purpose of this feature is to support cosmetic use of key events (e.g. RGB reacting to keypresses). This adds overhead to the split communication protocol and may negatively impact the matrix scan speed when enabled. 
+
+```c
+#define SPLIT_LAYER_STATE_ENABLE
+```
+
+This enables syncing of the layer state between both halves of the split keyboard. The main purpose of this feature is to enable support for use of things like OLED display of the currently active layer. This adds overhead to the split communication protocol and may negatively impact the matrix scan speed when enabled. 
+
+```c
+#define SPLIT_LED_STATE_ENABLE
+```
+
+This enables syncing of the Host LED status (caps lock, num lock, etc) between both halves of the split keyboard. The main purpose of this feature is to enable support for use of things like OLED display of the Host LED status. This adds overhead to the split communication protocol and may negatively impact the matrix scan speed when enabled. 
+
+```c
+#define SPLIT_MODS_ENABLE
+```
+
+This enables transmitting modifier state (normal, weak and oneshot) to the non primary side of the split keyboard. The purpose of this feature is to support cosmetic use of modifer state (e.g. displaying status on an OLED screen). This adds overhead to the split communication protocol and may negatively impact the matrix scan speed when enabled. 
+
+```c
+#define SPLIT_WPM_ENABLE
+```
+
+This enables transmitting the current WPM to the slave side of the split keyboard. The purpose of this feature is to support cosmetic use of WPM (e.g. displaying the current value on an OLED screen). This adds overhead to the split communication protocol and may negatively impact the matrix scan speed when enabled. 
+
+### Custom data sync between sides :id=custom-data-sync
+
+QMK's split transport allows for arbitrary data transactions at both the keyboard and user levels. This is modelled on a remote procedure call, with the master invoking a function on the slave side, with the ability to send data from master to slave, process it slave side, and send data back from slave to master.
+
+To leverage this, a keyboard or user/keymap can define a comma-separated list of _transaction IDs_:
+
+```c
+// for keyboard-level data sync:
+#define SPLIT_TRANSACTION_IDS_KB KEYBOARD_SYNC_A, KEYBOARD_SYNC_B
+// or, for user:
+#define SPLIT_TRANSACTION_IDS_USER USER_SYNC_A, USER_SYNC_B, USER_SYNC_C
+```
+
+These _transaction IDs_ then need a slave-side handler function to be registered with the split transport, for example:
+
+```c
+typedef struct _master_to_slave_t {
+    int m2s_data;
+} master_to_slave_t;
+
+typedef struct _slave_to_master_t {
+    int s2m_data;
+} slave_to_master_t;
+
+void user_sync_a_slave_handler(uint8_t in_buflen, const void* in_data, uint8_t out_buflen, void* out_data) {
+    const master_to_slave_t *m2s = (const master_to_slave_t*)in_data;
+    slave_to_master_t *s2m = (slave_to_master_t*)out_data;
+    s2m->s2m_data = m2s->m2s_data + 5; // whatever comes in, add 5 so it can be sent back
+}
+
+void keyboard_post_init_user(void) {
+    transaction_register_rpc(USER_SYNC_A, user_sync_a_slave_handler);
+}
+```
+
+The master side can then invoke the slave-side handler - for normal keyboard functionality to be minimally affected, any keyboard- or user-level code attempting to sync data should be throttled:
+
+```c
+void housekeeping_task_user(void) {
+    if (is_keyboard_master()) {
+        // Interact with slave every 500ms
+        static uint32_t last_sync = 0;
+        if (timer_elapsed32(last_sync) > 500) {
+            last_sync = timer_read32();
+            master_to_slave_t m2s = {6};
+            slave_to_master_t s2m = {0};
+            transaction_rpc_exec(USER_SYNC_A, sizeof(m2s), &m2s, sizeof(s2m), &s2m);
+            dprintf("Slave value: %d\n", s2m.s2m_data); // this will now be 11, as the slave adds 5
+        }
+    }
+}
+```
+
+If only one-way data transfer is needed, helper methods are provided:
+
+```c
+bool transaction_rpc_exec(int8_t transaction_id, uint8_t initiator2target_buffer_size, const void *initiator2target_buffer, uint8_t target2initiator_buffer_size, void *target2initiator_buffer);
+bool transaction_rpc_send(int8_t transaction_id, uint8_t initiator2target_buffer_size, const void *initiator2target_buffer);
+bool transaction_rpc_recv(int8_t transaction_id, uint8_t target2initiator_buffer_size, void *target2initiator_buffer);
+```
+
+By default, the inbound and outbound data is limited to a maximum of 32 bytes each. The sizes can be altered if required:
+
+```c
+// Master to slave:
+#define RPC_M2S_BUFFER_SIZE 48
+// Slave to master:
+#define RPC_S2M_BUFFER_SIZE 48
+```
 
 ###  Hardware Configuration Options
 
