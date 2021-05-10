@@ -4,8 +4,8 @@
 	branch = master
 [submodule "lib/chibios-contrib"]
 	path = lib/chibios-contrib
-	url = https://github.com/ChibiOS/ChibiOS-Contrib
-	branch = chibios-20.3.x
+	url = https://github.com/KarlK90/ChibiOS-Contrib
+	branch = risc-v-eclic-preempt-irq-tail
 [submodule "lib/ugfx"]
 	path = lib/ugfx
 	url = https://github.com/qmk/uGFX
