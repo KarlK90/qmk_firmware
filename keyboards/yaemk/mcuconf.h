@@ -234,6 +234,7 @@
 #define GD32_PWM_USE_TIM2                  FALSE
 #define GD32_PWM_USE_TIM3                  FALSE
 #define GD32_PWM_USE_TIM4                  FALSE
+#define GD32_PWM_TIM0_IRQ_PRIORITY         10
 #define GD32_PWM_TIM1_IRQ_PRIORITY         7
 #define GD32_PWM_TIM2_IRQ_PRIORITY         7
 #define GD32_PWM_TIM3_IRQ_PRIORITY         7
@@ -286,7 +287,7 @@
 /*
  * ST driver system settings.
  */
-#define GD32_ST_IRQ_PRIORITY               9
+#define GD32_ST_IRQ_PRIORITY               10
 #define GD32_ST_IRQ_TRIGGER                ECLIC_TRIGGER_DEFAULT
 #define GD32_ST_USE_TIMER                  1
 
@@ -300,7 +301,7 @@
 #define GD32_UART_USE_UART4                FALSE
 #define GD32_UART_USART0_IRQ_PRIORITY      13
 #define GD32_UART_USART1_IRQ_PRIORITY      13
-#define GD32_UART_USART2_IRQ_PRIORITY      13
+#define GD32_UART_USART2_IRQ_PRIORITY      10
 #define GD32_UART_UART3_IRQ_PRIORITY       13
 #define GD32_UART_UART4_IRQ_PRIORITY       13
 #define GD32_UART_USART0_IRQ_TRIGGER       ECLIC_TRIGGER_DEFAULT
@@ -319,7 +320,7 @@
  * USB driver system settings.
  */
 #define GD32_USB_USE_USBFS                 TRUE
-#define GD32_USB_USBFS_IRQ_PRIORITY        5
+#define GD32_USB_USBFS_IRQ_PRIORITY        10
 #define GD32_USB_USBFS_IRQ_TRIGGER         ECLIC_TRIGGER_DEFAULT
 #define GD32_USB_USBFS_RX_FIFO_SIZE        256
 
