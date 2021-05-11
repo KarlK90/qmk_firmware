@@ -100,6 +100,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #endif
 #ifdef EEPROM_DRIVER
 #    include "eeprom_driver.h"
+#endif
 #ifdef CRC_ENABLE
 #    include "crc.h"
 #endif
