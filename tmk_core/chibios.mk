@@ -311,10 +311,28 @@ COMPILEFLAGS += -fshort-wchar
 
 ifeq ($(strip $(MCU)), risc-v)
 # RISC-V toolchain
-    TRGT = riscv64-unknown-elf-
+	# detect what shell is used
+	ifeq ($(findstring cmd.exe,$(SHELL)),cmd.exe)
+		DEVNUL := NUL
+		WHICH := where
+	else
+		DEVNUL := /dev/null
+		WHICH := which
+	endif
 
-    COMPILEFLAGS += -mstrict-align 
-    LDFLAGS += -nostartfiles -mstrict-align 
+	# detect platform independently if gcc is installed
+	ifneq ($(shell ${WHICH} riscv32-unknown-elf-gcc 2>${DEVNUL}),)
+    	TRGT = riscv32-unknown-elf-
+	else
+		ifneq ($(shell ${WHICH} riscv64-unknown-elf-gcc 2>${DEVNUL}),)
+    		TRGT = riscv64-unknown-elf-
+		else
+			$(error "risc-v gcc is not in your system PATH!")
+		endif
+	endif
+
+    COMPILEFLAGS += -mstrict-align
+    LDFLAGS += -nostartfiles -mstrict-align
     MCUFLAGS = -march=$(MCU_ARCH) -mabi=$(MCU_ABI) -mcmodel=$(MCU_CMODEL)
 else
 # ARM toolchain
@@ -327,7 +345,9 @@ else
 
     LDFLAGS += -mno-thumb-interwork -mthumb
     LDFLAGS +=-Wl,--no-wchar-size-warning
-    ASFLAGS += $(THUMBFLAGS)
+	LDFLAGS += --specs=nano.specs
+
+	ASFLAGS += $(THUMBFLAGS)
 
     MCUFLAGS = -mcpu=$(MCU)
 
@@ -368,7 +388,6 @@ LDFLAGS +=-Wl,--gc-sections
 LDSYMBOLS =,--defsym=__process_stack_size__=$(USE_PROCESS_STACKSIZE)
 LDSYMBOLS :=$(LDSYMBOLS),--defsym=__main_stack_size__=$(USE_EXCEPTIONS_STACKSIZE)
 LDFLAGS += -Wl,--script=$(LDSCRIPT)$(LDSYMBOLS)
-LDFLAGS += --specs=nano.specs
 
 OPT_DEFS += -DPROTOCOL_CHIBIOS
 
