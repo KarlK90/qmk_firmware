@@ -23,6 +23,7 @@
 #include "transactions.h"
 #include "transport.h"
 #include "transaction_id_define.h"
+#include "crc.h"
 
 #define SYNC_TIMER_OFFSET 2
 
@@ -42,22 +43,6 @@
 
 #define transport_write(id, data, length) transport_execute_transaction(id, data, length, NULL, 0)
 #define transport_read(id, data, length) transport_execute_transaction(id, NULL, 0, data, length)
-
-static uint8_t crc8(const void *data, size_t len) {
-    const uint8_t *p   = (const uint8_t *)data;
-    uint8_t        crc = 0xff;
-    size_t         i, j;
-    for (i = 0; i < len; i++) {
-        crc ^= p[i];
-        for (j = 0; j < 8; j++) {
-            if ((crc & 0x80) != 0)
-                crc = (uint8_t)((crc << 1) ^ 0x31);
-            else
-                crc <<= 1;
-        }
-    }
-    return crc;
-}
 
 #if defined(SPLIT_TRANSACTION_IDS_KB) || defined(SPLIT_TRANSACTION_IDS_USER)
 // Forward-declare the RPC callback handlers
