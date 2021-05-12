@@ -320,6 +320,10 @@ ifeq ($(strip $(MCU)), risc-v)
 		WHICH := which
 	endif
 
+ifeq ($(strip $(USE_CLANG)),yes)
+    TRGT = riscv32-unknown-elf-
+    LDFLAGS += -fuse-ld=gold 
+else
 	# detect platform independently if gcc is installed
 	ifneq ($(shell ${WHICH} riscv32-unknown-elf-gcc 2>${DEVNUL}),)
     	TRGT = riscv32-unknown-elf-
@@ -330,9 +334,11 @@ ifeq ($(strip $(MCU)), risc-v)
 			$(error "risc-v gcc is not in your system PATH!")
 		endif
 	endif
-
     COMPILEFLAGS += -mstrict-align
-    LDFLAGS += -nostartfiles -mstrict-align
+endif
+
+
+    LDFLAGS += -nostartfiles 
     MCUFLAGS = -march=$(MCU_ARCH) -mabi=$(MCU_ABI) -mcmodel=$(MCU_CMODEL)
 else
 # ARM toolchain
@@ -365,7 +371,12 @@ else
 
 endif
 
+ifeq ($(strip $(USE_CLANG)),yes)
+CC = $(TRGT)clang
+else
 CC = $(TRGT)gcc
+endif
+
 OBJCOPY = $(TRGT)objcopy
 OBJDUMP = $(TRGT)objdump
 SIZE = $(TRGT)size
