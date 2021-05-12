@@ -361,7 +361,7 @@ void process_action(keyrecord_t *record, action_t action) {
 #    endif
                             {
                                 dprint("MODS_TAP: Tap: register_code\n");
-                                register_code_deferred(action.key.code);
+                                register_code(action.key.code);
                             }
                         } else {
                             dprint("MODS_TAP: No tap: add_mods\n");
@@ -552,7 +552,7 @@ void process_action(keyrecord_t *record, action_t action) {
                     if (event.pressed) {
                         if (tap_count > 0) {
                             dprint("KEYMAP_TAP_KEY: Tap: register_code\n");
-                            register_code_deferred(action.layer_tap.code);
+                            register_code(action.layer_tap.code);
                         } else {
                             dprint("KEYMAP_TAP_KEY: No tap: On on press\n");
                             layer_on(action.layer_tap.val);
