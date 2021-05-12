@@ -37,5 +37,4 @@
 
 #define UART_USE_WAIT TRUE
 
-#include "halconf_community.h"
 #include_next <halconf.h>
