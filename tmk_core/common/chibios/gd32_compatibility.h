@@ -42,3 +42,12 @@
 
 #define CCR CHCV
 #define dier dmainten
+
+// SPI redefines.
+#define SPI_CR1_LSBFIRST  SPI_CTL0_LF     
+#define SPI_CR1_CPHA      SPI_CTL0_CKPH      
+#define SPI_CR1_CPOL      SPI_CTL0_CKPL      
+#define SPI_CR1_BR_0      SPI_CTL0_PSC_0      
+#define SPI_CR1_BR_1      SPI_CTL0_PSC_1      
+#define SPI_CR1_BR_2      SPI_CTL0_PSC_2              
+
