@@ -13,7 +13,7 @@ else
     MCU        =   STM32F303
     BOARD      =   GENERIC_STM32_F303XC
     LTO_ENABLE =   yes
-    EXTRAFLAGS += -O3
+    EXTRAFLAGS += -Ofast
 endif
 
 # YAEMK source files
