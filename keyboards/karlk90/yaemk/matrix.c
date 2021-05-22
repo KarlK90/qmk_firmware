@@ -109,8 +109,16 @@ uint8_t matrix_scan(void) {
 
         /* Reverse the order of columns for left hand as the board is flipped. */
         if (isLeftHand) {
-            /* https://graphics.stanford.edu/~seander/bithacks.html#ReverseByteWith32Bits */
+#if defined(__arm__)
+            /* rbit assembly reverses bit order of 32bit registers. */
+            uint32_t temp = cols;
+            __asm__("rbit %0, %1" : "=r"(temp) : "r"(temp));
+            cols = temp >> 24;
+#else
+            /* RISC-V bit manipulation extension not present. Use bit-hack.
+            https://graphics.stanford.edu/~seander/bithacks.html#ReverseByteWith32Bits */
             cols = (matrix_row_t)(((cols * 0x0802LU & 0x22110LU) | (cols * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16);
+#endif
         }
 
         current_matrix[row_idx] = cols;
