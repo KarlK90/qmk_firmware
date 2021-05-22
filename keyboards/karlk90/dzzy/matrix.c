@@ -18,20 +18,19 @@ void matrix_init_custom(void) {
 bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     matrix_row_t raw_matrix[MATRIX_ROWS];
 
-    ATOMIC_BLOCK_FORCEON {
-        for (size_t row_idx = 0; row_idx < MATRIX_ROWS; row_idx++) {
-            writePinHigh(row_pins[row_idx]);
-            matrix_output_select_delay();
-            raw_matrix[row_idx] = palReadGroup(GPIOA, 0x3F, 0);
-            writePinLow(row_pins[row_idx]);
-            matrix_output_unselect_delay();
-        }
+    for (size_t row_idx = 0; row_idx < MATRIX_ROWS; row_idx++) {
+        ATOMIC_BLOCK_FORCEON { writePinHigh(row_pins[row_idx]); }
+        matrix_output_select_delay();
+        raw_matrix[row_idx] = palReadGroup(GPIOA, 0x3F, 0);
+        ATOMIC_BLOCK_FORCEON { writePinLow(row_pins[row_idx]); }
+        matrix_output_unselect_delay();
     }
+}
 
-    if (memcmp(current_matrix, raw_matrix, sizeof(raw_matrix)) != 0) {
-        memcpy(current_matrix, raw_matrix, sizeof(raw_matrix));
-        return true;
-    }
+if (memcmp(current_matrix, raw_matrix, sizeof(raw_matrix)) != 0) {
+    memcpy(current_matrix, raw_matrix, sizeof(raw_matrix));
+    return true;
+}
 
-    return false;
+return false;
 }

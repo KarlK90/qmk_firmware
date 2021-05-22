@@ -33,11 +33,11 @@
 #define DEBUG_MATRIX_SCAN_RATE
 #define DEBOUNCE 5
 #define BUSY_WAIT
-#define BUSY_WAIT_INSTRUCTIONS 10
+#define BUSY_WAIT_INSTRUCTIONS 35
 #if defined(__riscv)
-#    define GPIO_INPUT_PIN_DELAY 4
+#    define GPIO_INPUT_PIN_DELAY 10
 #elif defined(__arm__)
-#    define GPIO_INPUT_PIN_DELAY 4
+#    define GPIO_INPUT_PIN_DELAY 10
 #endif
 
 #define QMK_KEYS_PER_SCAN 8

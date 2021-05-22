@@ -18,15 +18,15 @@ endif
 
 # YAEMK source files
 LAYOUTS = split_5x8
-SRC     = led_config.c
+SRC     = led_config.c matrix.c matrix_common.c
 
 # Debugging
-EXTRAFLAGS     += -g
+EXTRAFLAGS     += -gdwarf-4 -Wextra -Wconversion
 ALLOW_WARNINGS =   yes
 
 # QMK features 
-REGISTER_MULTIPLE_KEYEVENTS_ENABLE = yes
 CONSOLE_ENABLE                     = no
+CUSTOM_MATRIX                      = yes
 DEBOUNCE_TYPE                      = asym_eager_defer_pk
 EEPROM_DRIVER                      = i2c
 ENCODER_ENABLE                     = yes
@@ -35,6 +35,7 @@ KEYBOARD_SHARED_EP                 = no
 MOUSEKEY_ENABLE                    = yes
 NKRO_ENABLE                        = yes
 OLED_DRIVER_ENABLE                 = yes
+REGISTER_MULTIPLE_KEYEVENTS_ENABLE = yes
 RGB_MATRIX_DRIVER                  = WS2812
 RGB_MATRIX_ENABLE                  = yes
 SERIAL_DRIVER                      = usart_duplex
