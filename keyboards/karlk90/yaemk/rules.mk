@@ -18,7 +18,7 @@ endif
 
 # YAEMK source files
 LAYOUTS = split_5x8
-SRC     = led_config.c matrix.c matrix_common.c
+SRC     = led_config.c matrix.c matrix_common.c custom_color.c
 
 # Debugging
 EXTRAFLAGS     += -gdwarf-4 -Wextra -Wconversion
