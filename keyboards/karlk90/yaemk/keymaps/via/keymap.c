@@ -75,7 +75,7 @@ bool get_hold_on_other_key_press(uint16_t keycode, keyrecord_t *record) {
 #endif
 
 #if defined(ENCODER_ENABLE)
-void encoder_update_user(uint8_t index, bool clockwise) {
+bool encoder_update_user(uint8_t index, bool clockwise) {
     layer_state_t current_state = get_highest_layer(layer_state);
 
     if (index == _ENCODER_LEFT) {
@@ -135,6 +135,8 @@ void encoder_update_user(uint8_t index, bool clockwise) {
             }
         }
     }
+
+    return false;
 }
 #endif
 
