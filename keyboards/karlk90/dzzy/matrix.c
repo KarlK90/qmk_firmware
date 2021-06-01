@@ -21,13 +21,14 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     for (size_t row_idx = 0; row_idx < MATRIX_ROWS; row_idx++) {
         writePinHigh(row_pins[row_idx]);
         matrix_output_select_delay();
-        
-        raw_matrix[row_idx] = palReadGroup(GPIOA, 0x3F, 0);
-        
+
+        raw_matrix[row_idx] = (matrix_row_t)palReadGroup(GPIOA, 0x3F, 0);
+
         writePinLow(row_pins[row_idx]);
-        /* Wait until col pins are high again. */
+
+        /* Wait until col pins are low again. */
         size_t counter = 0;
-        while ((palReadGroup(GPIOA, 0x3F, 0) != 0x3F) && counter < 300) {
+        while ((palReadGroup(GPIOA, 0x3F, 0) != 0) && counter < 350) {
             counter++;
         }
     }

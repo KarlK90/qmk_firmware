@@ -5,14 +5,14 @@ ifeq ($(strip $(RISC-V)), yes)
     MCU                =   GD32VF103
     BOARD              =   SIPEED_LONGAN_NANO
     LTO_ENABLE         =   yes
-    EXTRAFLAGS         += -O3  -gdwarf-4 -Wextra
+    EXTRAFLAGS         += -Ofast  -gdwarf-4 -Wextra
     # Default clock is 96MHz, 120MHz is out of spec but possible.
     OPT_DEFS           += -DOVERCLOCK_120MHZ
 else
     MCU        =   STM32F303
     BOARD      =   GENERIC_STM32_F303XC
     LTO_ENABLE =   yes
-    EXTRAFLAGS += -O3
+    EXTRAFLAGS += -Ofast
 endif
 
 # DZZY source files

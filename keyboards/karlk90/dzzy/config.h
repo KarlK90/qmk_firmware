@@ -32,13 +32,11 @@
 #define DIODE_DIRECTION ROW2COL
 #define DEBUG_MATRIX_SCAN_RATE
 #define DEBOUNCE 5
-#define BUSY_WAIT
-#define BUSY_WAIT_INSTRUCTIONS 10
 
 #if defined(__riscv)
-#    define GPIO_INPUT_PIN_DELAY 10
+#    define GPIO_INPUT_PIN_DELAY 15
 #elif defined(__arm__)
-#    define GPIO_INPUT_PIN_DELAY 10
+#    define GPIO_INPUT_PIN_DELAY 15
 #endif
 
 #define QMK_KEYS_PER_SCAN 8

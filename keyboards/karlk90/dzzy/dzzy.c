@@ -1,9 +1,13 @@
 #include "dzzy.h"
 
 void keyboard_post_init_user(void) {
+#if defined(__riscv)
+    // Free B3 pin.
+    AFIO->MAPR |= AFIO_PCF0_SWJ_CFG_NOJNTRST;
+#endif
     // Customise these values to desired behaviour
     // debug_enable = true;
-    // debug_matrix   = true;
+    // debug_matrix = true;
     // debug_keyboard = true;
     // debug_mouse=true;
 }
