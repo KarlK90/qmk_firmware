@@ -54,9 +54,7 @@ void oled_task_user(void) {
             }
             break;
         case RENDER_DISPLAY:
-            if (is_keyboard_master()) {
-                render_display();
-            }
+            render_display();
             break;
         default:
             break;
