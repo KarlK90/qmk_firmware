@@ -97,7 +97,7 @@ uint8_t matrix_scan(void) {
 
     for (size_t row_idx = 0; row_idx < ROWS_PER_HAND; row_idx++) {
         /* Drive row pin low. */
-        ATOMIC_BLOCK_FORCEON { writePinLow(row_pins[row_idx]); }
+        writePinLow(row_pins[row_idx]);
         matrix_output_select_delay();
 
         uint16_t porta = palReadPort(GPIOA);
@@ -124,8 +124,13 @@ uint8_t matrix_scan(void) {
         current_matrix[row_idx] = cols;
 
         /* Drive row pin high again. */
-        ATOMIC_BLOCK_FORCEON { writePinHigh(row_pins[row_idx]); }
-        matrix_output_unselect_delay();
+        writePinHigh(row_pins[row_idx]);
+
+        /* Wait until col pins are high again. */
+        size_t counter = 0;
+        while (((palReadGroup(GPIOA, 0x84, 0) != 0x84) || ((palReadGroup(GPIOB, 0xE007, 0) != 0xE007))) && counter < 300) {
+            counter++;
+        }
     }
 
     if (memcmp(raw_matrix, current_matrix, sizeof(current_matrix)) != 0) {

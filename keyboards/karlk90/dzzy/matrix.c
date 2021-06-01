@@ -19,18 +19,23 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     matrix_row_t raw_matrix[MATRIX_ROWS];
 
     for (size_t row_idx = 0; row_idx < MATRIX_ROWS; row_idx++) {
-        ATOMIC_BLOCK_FORCEON { writePinHigh(row_pins[row_idx]); }
+        writePinHigh(row_pins[row_idx]);
         matrix_output_select_delay();
+        
         raw_matrix[row_idx] = palReadGroup(GPIOA, 0x3F, 0);
-        ATOMIC_BLOCK_FORCEON { writePinLow(row_pins[row_idx]); }
-        matrix_output_unselect_delay();
+        
+        writePinLow(row_pins[row_idx]);
+        /* Wait until col pins are high again. */
+        size_t counter = 0;
+        while ((palReadGroup(GPIOA, 0x3F, 0) != 0x3F) && counter < 300) {
+            counter++;
+        }
     }
-}
 
-if (memcmp(current_matrix, raw_matrix, sizeof(raw_matrix)) != 0) {
-    memcpy(current_matrix, raw_matrix, sizeof(raw_matrix));
-    return true;
-}
+    if (memcmp(current_matrix, raw_matrix, sizeof(raw_matrix)) != 0) {
+        memcpy(current_matrix, raw_matrix, sizeof(raw_matrix));
+        return true;
+    }
 
-return false;
+    return false;
 }
