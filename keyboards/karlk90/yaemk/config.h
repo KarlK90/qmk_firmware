@@ -100,15 +100,15 @@
 /* SERIAL SPLIT DRIVER */
 #define SERIAL_USART_TX_PIN B10
 #define SERIAL_USART_RX_PIN B11
-#define SERIAL_USART_DRIVER UARTD3
-#define SERIAL_USE_MULTI_TRANSACTION
+#define SERIAL_USART_DRIVER SD3
+#define SERIAL_USART_FULL_DUPLEX
 #define SERIAL_USART_TIMEOUT 15
 #define SERIAL_USART_CR2 0x0  // 1 stop bit is enough
+
 #if defined(__riscv)
 #    define SERIAL_USART_SPEED (GD32_PCLK1 >> 4)  // Use highest possible baudrate.
 #elif defined(__arm__)
 #    define SERIAL_USART_SPEED (STM32_PCLK1 >> 4)  // Use highest possible baudrate.
-#    define SERIAL_USART_CR1 (USART_CR1_PCE | USART_CR1_PS | USART_CR1_M0 | USART_CR1_OVER8)
 #endif
 
 /* I2C DRIVER */

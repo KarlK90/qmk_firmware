@@ -33,8 +33,6 @@
 
 #define HAL_USE_SPI FALSE
 
-#define HAL_USE_UART TRUE
-
-#define UART_USE_WAIT TRUE
+#define HAL_USE_SERIAL TRUE
 
 #include_next <halconf.h>
