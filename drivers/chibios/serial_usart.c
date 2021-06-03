@@ -31,6 +31,8 @@ static SerialConfig serial_config = {
 };
 #endif
 
+static SerialDriver* serial_driver = &SERIAL_USART_DRIVER;
+
 static inline bool react_to_transactions(void);
 static inline bool receive(uint8_t* destination, const size_t size);
 static inline bool send(const uint8_t* source, const size_t size);
@@ -45,7 +47,7 @@ static inline void usart_reset(void);
  * @param n Bytes to discard from the input queue.
  */
 static void usart_discard_bytes(size_t n) {
-    input_queue_t* iqp = &SERIAL_USART_DRIVER.iqueue;
+    input_queue_t* iqp = &serial_driver->iqueue;
     size_t         s1, s2;
     size_t         bytes_to_discard = n;
 
@@ -84,7 +86,7 @@ static void usart_discard_bytes(size_t n) {
  * @return false Send failed.
  */
 static inline bool send(const uint8_t* source, const size_t size) {
-    bool success = (size_t)sdWriteTimeout(&SERIAL_USART_DRIVER, source, size, TIME_MS2I(SERIAL_USART_TIMEOUT)) == size;
+    bool success = (size_t)sdWriteTimeout(serial_driver, source, size, TIME_MS2I(SERIAL_USART_TIMEOUT)) == size;
 
 #if !defined(SERIAL_USART_FULL_DUPLEX)
     if (success) {
@@ -104,7 +106,7 @@ static inline bool send(const uint8_t* source, const size_t size) {
  * @return false Receive failed.
  */
 static inline bool receive(uint8_t* destination, const size_t size) {
-    size_t success = (size_t)sdReadTimeout(&SERIAL_USART_DRIVER, destination, size, TIME_MS2I(SERIAL_USART_TIMEOUT)) == size;
+    size_t success = (size_t)sdReadTimeout(serial_driver, destination, size, TIME_MS2I(SERIAL_USART_TIMEOUT)) == size;
     return success;
 }
 
@@ -114,7 +116,7 @@ static inline bool receive(uint8_t* destination, const size_t size) {
 static inline void usart_reset(void) {
     /* Hard reset the input queue. */
     osalSysLock();
-    iqResetI(&(SERIAL_USART_DRIVER.iqueue));
+    iqResetI(&serial_driver->iqueue);
     osalSysUnlock();
 }
 
@@ -146,7 +148,7 @@ __attribute__((weak)) void usart_init(void) {
     palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_INPUT);
 #    else
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_TX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
-    palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_TX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+    palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_RX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
 #    endif
 
 #    if defined(USART_REMAP)
@@ -156,8 +158,18 @@ __attribute__((weak)) void usart_init(void) {
 
 #endif
 
-/*
- * This thread runs on the slave and responds to transactions initiated
+/**
+ * @brief Overridable master specific initializations.
+ */
+__attribute__((weak)) void usart_master_init(void) { usart_init(); }
+
+/**
+ * @brief Overridable slave specific initializations.
+ */
+__attribute__((weak)) void usart_slave_init(void) { usart_init(); }
+
+/**
+ * @brief This thread runs on the slave and responds to transactions initiated
  * by the master.
  */
 static THD_WORKING_AREA(waSlaveThread, 1024);
@@ -178,9 +190,9 @@ static THD_FUNCTION(SlaveThread, arg) {
  * @brief Slave specific initializations.
  */
 void soft_serial_target_init(void) {
-    usart_init();
+    usart_slave_init();
 
-    sdStart(&SERIAL_USART_DRIVER, &serial_config);
+    sdStart(serial_driver, &serial_config);
 
     /* Start transport thread. */
     chThdCreateStatic(waSlaveThread, sizeof(waSlaveThread), HIGHPRIO, SlaveThread, NULL);
@@ -191,7 +203,7 @@ void soft_serial_target_init(void) {
  */
 static inline bool react_to_transactions(void) {
     /* Wait until there is a transaction for us. */
-    uint8_t sstd_index = (uint8_t)sdGet(&SERIAL_USART_DRIVER);
+    uint8_t sstd_index = (uint8_t)sdGet(serial_driver);
 
     /* Sanity check that we are actually responding to a valid transaction. */
     if (sstd_index >= NUM_TOTAL_TRANSACTIONS) {
@@ -238,13 +250,13 @@ static inline bool react_to_transactions(void) {
  * @brief Master specific initializations.
  */
 void soft_serial_initiator_init(void) {
-    usart_init();
+    usart_master_init();
 
 #if defined(SERIAL_USART_PIN_SWAP)
     serial_config.cr2 |= USART_CR2_SWAP;  // master has swapped TX/RX pins
 #endif
 
-    sdStart(&SERIAL_USART_DRIVER, &serial_config);
+    sdStart(serial_driver, &serial_config);
 }
 
 /**
