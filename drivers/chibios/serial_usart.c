@@ -37,45 +37,27 @@ static inline void react_to_transactions(void);
 static inline bool __attribute__((nonnull)) receive(uint8_t* destination, const size_t size);
 static inline bool __attribute__((nonnull)) send(const uint8_t* source, const size_t size);
 static inline int  initiate_transaction(uint8_t sstd_index);
-static inline void usart_discard_bytes(size_t n);
-static inline void usart_reset(void);
+static inline void usart_clear(void);
 
 /**
- * @brief   Discard bytes from the serial driver input queue, it is used in half-duplex mode.
- * @details This function is a copy of iq_read, without the memcpy calls to save some cycles.
- *
- * @param n Bytes to discard from the input queue.
+ * @brief Clear the receive input queue.
  */
-static void usart_discard_bytes(size_t n) {
-    input_queue_t* iqp = &serial_driver->iqueue;
-    size_t         s1, s2;
-    size_t         bytes_to_discard = n;
+static inline void usart_clear(void) {
+    osalSysLock();
+    bool queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
+    osalSysUnlock();
 
-    osalDbgCheck(n > 0U);
-    while (bytes_to_discard > 0) {
+    while (queue_not_empty) {
         osalSysLock();
-        /* Number of bytes that can be read in a single atomic operation.*/
-        if (n > iqGetFullI(iqp)) {
-            n = iqGetFullI(iqp);
-        }
-
-        /* Number of bytes before buffer limit.*/
-        s1 = (size_t)(iqp->q_top - iqp->q_rdptr);
-
-        if (n < s1) {
-            iqp->q_rdptr += n;
-        } else if (n > s1) {
-            s2           = n - s1;
-            iqp->q_rdptr = iqp->q_buffer + s2;
-        } else {
-            iqp->q_rdptr = iqp->q_buffer;
-        }
-
-        iqp->q_counter -= n;
+        /* Hard reset the input queue. */
+        iqResetI(&serial_driver->iqueue);
         osalSysUnlock();
-
-        bytes_to_discard -= n;
-        n = bytes_to_discard;
+        /* Allow pending interrupts to preempt.
+         * Do not merge the lock/unlock blocks into one
+         * or the code will not work properly. */
+        osalSysLock();
+        queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
+        osalSysUnlock();
     }
 }
 
@@ -90,10 +72,9 @@ static inline bool send(const uint8_t* source, const size_t size) {
 
 #if !defined(SERIAL_USART_FULL_DUPLEX)
     if (success) {
-        /* Half duplex requires us to read back the data we just wrote - just throw it away */
-        usart_discard_bytes(size);
+        /* Half duplex fills the input queue with the data we wrote - just throw it away. */
+        usart_clear();
     }
-
 #endif
 
     return success;
@@ -110,26 +91,6 @@ static inline bool receive(uint8_t* destination, const size_t size) {
     return success;
 }
 
-/**
- * @brief Reset the receive input queue.
- */
-static inline void usart_reset(void) {
-    osalSysLock();
-    bool queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
-    osalSysUnlock();
-
-    while (queue_not_empty) {
-        osalSysLock();
-        /* Hard reset the input queue. */
-        iqResetI(&serial_driver->iqueue);
-        osalSysUnlock();
-        /* Allow pending interrupts to preempt. */
-        osalSysLock();
-        queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
-        osalSysUnlock();
-    }
-}
-
 #if !defined(SERIAL_USART_FULL_DUPLEX)
 
 /**
@@ -141,6 +102,7 @@ __attribute__((weak)) void usart_init(void) {
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);
 #        else
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_TX_PAL_MODE) | PAL_STM32_OTYPE_OPENDRAIN);
+    palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_RX_PAL_MODE) | PAL_STM32_OTYPE_OPENDRAIN);
 #        endif
 
 #        if defined(USART_REMAP)
@@ -204,7 +166,7 @@ static THD_FUNCTION(SlaveThread, arg) {
     while (true) {
         /* Clear the receive queue, to start with a clean slate.
          * Parts of failed transactions or spurious bytes could still be in it. */
-        usart_reset();
+        usart_clear();
         react_to_transactions();
     }
 }
@@ -291,7 +253,7 @@ void soft_serial_initiator_init(void) {
 int soft_serial_transaction(int index) {
     /* Clear the receive queue, to start with a clean slate.
      * Parts of failed transactions or spurious bytes could still be in it. */
-    usart_reset();
+    usart_clear();
     return initiate_transaction((uint8_t)index);
 }
 
