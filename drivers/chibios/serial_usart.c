@@ -33,7 +33,7 @@ static SerialConfig serial_config = {
 
 static SerialDriver* serial_driver = &SERIAL_USART_DRIVER;
 
-static inline bool react_to_transactions(void);
+static inline void react_to_transactions(void);
 static inline bool __attribute__((nonnull)) receive(uint8_t* destination, const size_t size);
 static inline bool __attribute__((nonnull)) send(const uint8_t* source, const size_t size);
 static inline int  initiate_transaction(uint8_t sstd_index);
@@ -114,10 +114,20 @@ static inline bool receive(uint8_t* destination, const size_t size) {
  * @brief Reset the receive input queue.
  */
 static inline void usart_reset(void) {
-    /* Hard reset the input queue. */
     osalSysLock();
-    iqResetI(&serial_driver->iqueue);
+    bool queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
     osalSysUnlock();
+
+    while (queue_not_empty) {
+        osalSysLock();
+        /* Hard reset the input queue. */
+        iqResetI(&serial_driver->iqueue);
+        osalSysUnlock();
+        /* Allow pending interrupts to preempt. */
+        osalSysLock();
+        queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
+        osalSysUnlock();
+    }
 }
 
 #if !defined(SERIAL_USART_FULL_DUPLEX)
@@ -192,11 +202,10 @@ static THD_FUNCTION(SlaveThread, arg) {
     chRegSetThreadName("usart_tx_rx");
 
     while (true) {
-        if (!react_to_transactions()) {
-            /* Clear the receive queue, to start with a clean slate.
-             * Parts of failed transactions could still be in it. */
-            usart_reset();
-        }
+        /* Clear the receive queue, to start with a clean slate.
+         * Parts of failed transactions or spurious bytes could still be in it. */
+        usart_reset();
+        react_to_transactions();
     }
 }
 
@@ -215,13 +224,13 @@ void soft_serial_target_init(void) {
 /**
  * @brief React to transactions started by the master.
  */
-static inline bool react_to_transactions(void) {
+static inline void react_to_transactions(void) {
     /* Wait until there is a transaction for us. */
     uint8_t sstd_index = (uint8_t)sdGet(serial_driver);
 
     /* Sanity check that we are actually responding to a valid transaction. */
     if (sstd_index >= NUM_TOTAL_TRANSACTIONS) {
-        return false;
+        return;
     }
 
     split_transaction_desc_t* trans = &split_transaction_table[sstd_index];
@@ -231,14 +240,14 @@ static inline bool react_to_transactions(void) {
     sstd_index ^= HANDSHAKE_MAGIC;
     if (!send(&sstd_index, sizeof(sstd_index))) {
         *trans->status = TRANSACTION_DATA_ERROR;
-        return false;
+        return;
     }
 
     /* Receive transaction buffer from the master. If this transaction requires it.*/
     if (trans->initiator2target_buffer_size) {
         if (!receive(split_trans_initiator2target_buffer(trans), trans->initiator2target_buffer_size)) {
             *trans->status = TRANSACTION_DATA_ERROR;
-            return false;
+            return;
         }
     }
 
@@ -251,13 +260,11 @@ static inline bool react_to_transactions(void) {
     if (trans->target2initiator_buffer_size) {
         if (!send(split_trans_target2initiator_buffer(trans), trans->target2initiator_buffer_size)) {
             *trans->status = TRANSACTION_DATA_ERROR;
-            return false;
+            return;
         }
     }
 
     *trans->status = TRANSACTION_ACCEPTED;
-
-    return true;
 }
 
 /**
@@ -282,15 +289,10 @@ void soft_serial_initiator_init(void) {
  *             TRANSACTION_END in case of success.
  */
 int soft_serial_transaction(int index) {
-    int result = initiate_transaction((uint8_t)index);
-
-    if (result != TRANSACTION_END) {
-        /* Clear the receive queue, to start with a clean slate.
-         * Parts of failed transactions could still be in it. */
-        usart_reset();
-    }
-
-    return result;
+    /* Clear the receive queue, to start with a clean slate.
+     * Parts of failed transactions or spurious bytes could still be in it. */
+    usart_reset();
+    return initiate_transaction((uint8_t)index);
 }
 
 /**
