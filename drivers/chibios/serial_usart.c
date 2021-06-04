@@ -34,8 +34,8 @@ static SerialConfig serial_config = {
 static SerialDriver* serial_driver = &SERIAL_USART_DRIVER;
 
 static inline bool react_to_transactions(void);
-static inline bool receive(uint8_t* destination, const size_t size);
-static inline bool send(const uint8_t* source, const size_t size);
+static inline bool __attribute__((nonnull)) receive(uint8_t* destination, const size_t size);
+static inline bool __attribute__((nonnull)) send(const uint8_t* source, const size_t size);
 static inline int  initiate_transaction(uint8_t sstd_index);
 static inline void usart_discard_bytes(size_t n);
 static inline void usart_reset(void);
@@ -126,14 +126,18 @@ static inline void usart_reset(void) {
  * @brief Initiate pins for USART peripheral. Half-duplex configuration.
  */
 __attribute__((weak)) void usart_init(void) {
-#    if defined(USE_GPIOV1)
+#    if defined(MCU_STM32)
+#        if defined(USE_GPIOV1)
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);
-#    else
+#        else
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_TX_PAL_MODE) | PAL_STM32_OTYPE_OPENDRAIN);
-#    endif
+#        endif
 
-#    if defined(USART_REMAP)
+#        if defined(USART_REMAP)
     USART_REMAP;
+#        endif
+#    else
+#        pragma message "usart_init: MCU Familiy not supported by default, please supply your own init code by implementing usart_init() in your keyboard files."
 #    endif
 }
 
@@ -143,16 +147,20 @@ __attribute__((weak)) void usart_init(void) {
  * @brief Initiate pins for USART peripheral. Full-duplex configuration.
  */
 __attribute__((weak)) void usart_init(void) {
-#    if defined(USE_GPIOV1)
+#    if defined(MCU_STM32)
+#        if defined(USE_GPIOV1)
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_STM32_ALTERNATE_PUSHPULL);
     palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_INPUT);
-#    else
+#        else
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_TX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
     palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_RX_PAL_MODE) | PAL_STM32_OTYPE_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
-#    endif
+#        endif
 
-#    if defined(USART_REMAP)
+#        if defined(USART_REMAP)
     USART_REMAP;
+#        endif
+#    else
+#        pragma message "usart_init: MCU Familiy not supported by default, please supply your own init code by implementing usart_init() in your keyboard files."
 #    endif
 }
 
@@ -161,12 +169,18 @@ __attribute__((weak)) void usart_init(void) {
 /**
  * @brief Overridable master specific initializations.
  */
-__attribute__((weak)) void usart_master_init(void) { usart_init(); }
+__attribute__((weak, nonnull)) void usart_master_init(SerialDriver** driver) {
+    (void)driver;
+    usart_init();
+}
 
 /**
  * @brief Overridable slave specific initializations.
  */
-__attribute__((weak)) void usart_slave_init(void) { usart_init(); }
+__attribute__((weak, nonnull)) void usart_slave_init(SerialDriver** driver) {
+    (void)driver;
+    usart_init();
+}
 
 /**
  * @brief This thread runs on the slave and responds to transactions initiated
@@ -190,7 +204,7 @@ static THD_FUNCTION(SlaveThread, arg) {
  * @brief Slave specific initializations.
  */
 void soft_serial_target_init(void) {
-    usart_slave_init();
+    usart_slave_init(&serial_driver);
 
     sdStart(serial_driver, &serial_config);
 
@@ -250,9 +264,9 @@ static inline bool react_to_transactions(void) {
  * @brief Master specific initializations.
  */
 void soft_serial_initiator_init(void) {
-    usart_master_init();
+    usart_master_init(&serial_driver);
 
-#if defined(SERIAL_USART_PIN_SWAP)
+#if defined(MCU_STM32) && defined(SERIAL_USART_PIN_SWAP)
     serial_config.cr2 |= USART_CR2_SWAP;  // master has swapped TX/RX pins
 #endif
 
