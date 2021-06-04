@@ -103,6 +103,9 @@ uint8_t matrix_scan(void) {
         uint16_t porta = palReadPort(GPIOA);
         uint16_t portb = palReadPort(GPIOB);
 
+        /* Drive row pin high again. */
+        writePinHigh(row_pins[row_idx]);
+        
         /* Order of pins is: B15, B14, B13, B2, B1, B0, A7, A2
            Pin is active low, therefore we have to invert the result. */
         matrix_row_t cols = ~(((porta & 0x4) >> 2) | ((porta & 0x80) >> 6) | ((portb & 0x7) << 2) | ((portb & 0xE000) >> 8));
@@ -122,9 +125,6 @@ uint8_t matrix_scan(void) {
         }
 
         current_matrix[row_idx] = cols;
-
-        /* Drive row pin high again. */
-        writePinHigh(row_pins[row_idx]);
 
         /* Wait until col pins are high again. */
         size_t counter = 0;
