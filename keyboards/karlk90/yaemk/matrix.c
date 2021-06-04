@@ -9,7 +9,7 @@
 #include "config.h"
 #include "transactions.h"
 
-#define ERROR_DISCONNECT_COUNT 5
+#define ERROR_DISCONNECT_COUNT 1
 #define ROWS_PER_HAND (MATRIX_ROWS / 2)
 
 static const pin_t row_pins[ROWS_PER_HAND] = MATRIX_ROW_PINS;
@@ -56,29 +56,44 @@ void matrix_init(void) {
     split_post_init();
 }
 
-bool matrix_post_scan(void) {
+static inline bool matrix_post_scan(void) {
     bool changed = false;
     if (is_keyboard_master()) {
-        static uint8_t error_count;
+        static uint32_t     error_count;
+        static bool         peripheral_connected = true;
+        static uint32_t     last_connection;
+        static matrix_row_t slave_matrix[ROWS_PER_HAND];
 
-        matrix_row_t slave_matrix[ROWS_PER_HAND] = {0};
-        if (!transport_master(matrix + thisHand, slave_matrix)) {
-            error_count++;
+        if (peripheral_connected) {
+            if (!transport_master(matrix + thisHand, slave_matrix)) {
+                error_count++;
 
-            if (error_count > ERROR_DISCONNECT_COUNT) {
-                // reset other half if disconnected
-                memset(&matrix[thatHand], 0, sizeof(slave_matrix));
-                memset(slave_matrix, 0, sizeof(slave_matrix));
+                if (error_count > ERROR_DISCONNECT_COUNT) {
+                    // reset other half if disconnected
+                    memset(&matrix[thatHand], 0, sizeof(slave_matrix));
+                    memset(slave_matrix, 0, sizeof(slave_matrix));
 
-                changed = true;
+                    changed              = true;
+                    peripheral_connected = false;
+                    dprintln("Peripheral disconnected.");
+                }
+            } else {
+                if (error_count > 0) {
+                    error_count          = 0;
+                    peripheral_connected = true;
+                    last_connection      = timer_read32();
+                    dprintln("Peripheral connected.");
+                }
+
+                if (memcmp(&matrix[thatHand], slave_matrix, sizeof(slave_matrix)) != 0) {
+                    memcpy(&matrix[thatHand], slave_matrix, sizeof(slave_matrix));
+                    changed = true;
+                }
             }
-        } else {
-            error_count = 0;
-
-            if (memcmp(&matrix[thatHand], slave_matrix, sizeof(slave_matrix)) != 0) {
-                memcpy(&matrix[thatHand], slave_matrix, sizeof(slave_matrix));
-                changed = true;
-            }
+        } else if (timer_elapsed32(last_connection) > 5000) {
+            dprintln("Peripheral connection attempt.");
+            peripheral_connected = true;
+            last_connection      = timer_read32();
         }
 
         matrix_scan_quantum();
@@ -105,7 +120,7 @@ uint8_t matrix_scan(void) {
 
         /* Drive row pin high again. */
         writePinHigh(row_pins[row_idx]);
-        
+
         /* Order of pins is: B15, B14, B13, B2, B1, B0, A7, A2
            Pin is active low, therefore we have to invert the result. */
         matrix_row_t cols = ~(((porta & 0x4) >> 2) | ((porta & 0x80) >> 6) | ((portb & 0x7) << 2) | ((portb & 0xE000) >> 8));

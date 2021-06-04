@@ -102,7 +102,7 @@
 #define SERIAL_USART_RX_PIN B11
 #define SERIAL_USART_DRIVER SD3
 #define SERIAL_USART_FULL_DUPLEX
-#define SERIAL_USART_TIMEOUT 15
+#define SERIAL_USART_TIMEOUT 5
 #define SERIAL_USART_CR2 0x0  // 1 stop bit is enough
 
 #if defined(__riscv)
