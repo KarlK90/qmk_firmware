@@ -33,7 +33,7 @@ static SerialConfig serial_config = {
 
 static SerialDriver* serial_driver = &SERIAL_USART_DRIVER;
 
-static inline void react_to_transactions(void);
+static inline bool react_to_transactions(void);
 static inline bool __attribute__((nonnull)) receive(uint8_t* destination, const size_t size);
 static inline bool __attribute__((nonnull)) send(const uint8_t* source, const size_t size);
 static inline int  initiate_transaction(uint8_t sstd_index);
@@ -44,7 +44,7 @@ static inline void usart_clear(void);
  */
 static inline void usart_clear(void) {
     osalSysLock();
-    bool queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
+    bool volatile queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
     osalSysUnlock();
 
     while (queue_not_empty) {
@@ -55,6 +55,7 @@ static inline void usart_clear(void) {
         /* Allow pending interrupts to preempt.
          * Do not merge the lock/unlock blocks into one
          * or the code will not work properly. */
+        (void)queue_not_empty;
         osalSysLock();
         queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
         osalSysUnlock();
@@ -164,10 +165,11 @@ static THD_FUNCTION(SlaveThread, arg) {
     chRegSetThreadName("usart_tx_rx");
 
     while (true) {
-        /* Clear the receive queue, to start with a clean slate.
-         * Parts of failed transactions or spurious bytes could still be in it. */
-        usart_clear();
-        react_to_transactions();
+        if (!react_to_transactions()) {
+            /* Clear the receive queue, to start with a clean slate.
+             * Parts of failed transactions or spurious bytes could still be in it. */
+            usart_clear();
+        }
     }
 }
 
@@ -186,13 +188,13 @@ void soft_serial_target_init(void) {
 /**
  * @brief React to transactions started by the master.
  */
-static inline void react_to_transactions(void) {
+static inline bool react_to_transactions(void) {
     /* Wait until there is a transaction for us. */
     uint8_t sstd_index = (uint8_t)sdGet(serial_driver);
 
     /* Sanity check that we are actually responding to a valid transaction. */
     if (sstd_index >= NUM_TOTAL_TRANSACTIONS) {
-        return;
+        return false;
     }
 
     split_transaction_desc_t* trans = &split_transaction_table[sstd_index];
@@ -202,14 +204,14 @@ static inline void react_to_transactions(void) {
     sstd_index ^= HANDSHAKE_MAGIC;
     if (!send(&sstd_index, sizeof(sstd_index))) {
         *trans->status = TRANSACTION_DATA_ERROR;
-        return;
+        return false;
     }
 
     /* Receive transaction buffer from the master. If this transaction requires it.*/
     if (trans->initiator2target_buffer_size) {
         if (!receive(split_trans_initiator2target_buffer(trans), trans->initiator2target_buffer_size)) {
             *trans->status = TRANSACTION_DATA_ERROR;
-            return;
+            return false;
         }
     }
 
@@ -222,11 +224,12 @@ static inline void react_to_transactions(void) {
     if (trans->target2initiator_buffer_size) {
         if (!send(split_trans_target2initiator_buffer(trans), trans->target2initiator_buffer_size)) {
             *trans->status = TRANSACTION_DATA_ERROR;
-            return;
+            return false;
         }
     }
 
     *trans->status = TRANSACTION_ACCEPTED;
+    return true;
 }
 
 /**
