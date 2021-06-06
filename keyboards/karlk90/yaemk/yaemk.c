@@ -62,6 +62,34 @@ void oled_task_user(void) {
 }
 #endif
 
+bool process_record_kb(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+#if defined(RGB_MATRIX_ENABLE)
+        case RGB_TOG:
+            if (record->event.pressed) {
+                switch (rgb_matrix_get_flags()) {
+                    case LED_FLAG_ALL: {
+                        rgb_matrix_set_flags(LED_FLAG_KEYLIGHT);
+                    } break;
+                    case LED_FLAG_KEYLIGHT: {
+                        rgb_matrix_set_flags(LED_FLAG_UNDERGLOW);
+                    } break;
+                    case LED_FLAG_UNDERGLOW: {
+                        rgb_matrix_set_flags(LED_FLAG_NONE);
+                        rgb_matrix_disable();
+                    } break;
+                    default: {
+                        rgb_matrix_set_flags(LED_FLAG_ALL);
+                        rgb_matrix_enable();
+                    } break;
+                }
+            }
+            return false;
+#endif
+    }
+    return process_record_user(keycode, record);
+}
+
 #if defined(__riscv)
 
 #    pragma GCC push_options
