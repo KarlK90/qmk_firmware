@@ -78,7 +78,7 @@ static inline bool matrix_post_scan(void) {
                     dprintln("Peripheral disconnected.");
                 }
             } else {
-                if (error_count > 0) {
+                if (error_count != 0) {
                     error_count          = 0;
                     peripheral_connected = true;
                     last_connection      = timer_read32();
@@ -142,9 +142,9 @@ uint8_t matrix_scan(void) {
         current_matrix[row_idx] = cols;
 
         /* Wait until col pins are high again. */
-        size_t counter = 0;
-        while (((palReadGroup(GPIOA, 0x84, 0) != 0x84) || ((palReadGroup(GPIOB, 0xE007, 0) != 0xE007))) && counter < 300) {
-            counter++;
+        size_t counter = 0xFF;
+        while (((palReadGroup(GPIOA, 0x84, 0) != 0x84) || ((palReadGroup(GPIOB, 0xE007, 0) != 0xE007))) && counter != 0) {
+            counter--;
         }
     }
 
