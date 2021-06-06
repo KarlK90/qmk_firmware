@@ -31,7 +31,10 @@ DEBOUNCE_TYPE                      = asym_eager_defer_pk
 EEPROM_DRIVER                      = i2c
 ENCODER_ENABLE                     = yes
 EXTRAKEY_ENABLE                    = yes
-KEYBOARD_SHARED_EP                 = no
+# Set KEYBOARD_SHARED_EP = yes if you run out of usb endpoints.
+# This setting is mandatory with VIA on GD32VF103/RISC-V,
+# because the MCU has a limited amount of USB endpoints.
+KEYBOARD_SHARED_EP                 = no   
 MOUSEKEY_ENABLE                    = yes
 NKRO_ENABLE                        = yes
 OLED_DRIVER_ENABLE                 = yes
