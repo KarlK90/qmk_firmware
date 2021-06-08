@@ -210,7 +210,11 @@ void render_display(void) {
             oled_write_ln("Game", false);
             break;
         default:
-            oled_write_ln("QWERTZ", false);
+            if (is_keyboard_master()) {
+                oled_write_ln("\x7QWERTZ\x7", false);
+            } else {
+                oled_write_ln("QWERTZ", false);
+            }
             break;
     }
 }

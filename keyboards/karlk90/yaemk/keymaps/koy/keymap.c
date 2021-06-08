@@ -217,7 +217,11 @@ void render_display(void) {
             oled_write_ln("Game", false);
             break;
         default:
-            oled_write_ln("K.O,Y", false);
+            if (is_keyboard_master()) {
+                oled_write_ln("\x7K.O,Y\x7", false);
+            } else {
+                oled_write_ln("K.O,Y", false);
+            }
             break;
     }
 }
