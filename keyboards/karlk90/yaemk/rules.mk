@@ -5,7 +5,7 @@ ifeq ($(strip $(RISC-V)), yes)
     MCU                =   GD32VF103
     BOARD              =   SIPEED_LONGAN_NANO
     LTO_ENABLE         =   yes
-    EXTRAFLAGS         += -Ofast  -gdwarf-4
+    EXTRAFLAGS         += -Ofast
     USE_PROCESS_STACKSIZE = 2048
     # Default clock is 96MHz, 120MHz is out of spec but possible.
     OPT_DEFS           += -DOVERCLOCK_120MHZ
