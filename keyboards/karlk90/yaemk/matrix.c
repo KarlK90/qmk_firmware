@@ -57,31 +57,26 @@ void matrix_init(void) {
 }
 
 static inline bool matrix_post_scan(void) {
-    bool changed = false;
+    register bool changed = false;
     if (is_keyboard_master()) {
-        static uint32_t     error_count;
+        static bool         error;
         static bool         peripheral_connected = true;
-        static uint32_t     last_connection;
-        static matrix_row_t slave_matrix[ROWS_PER_HAND];
+        static fast_timer_t last_connection;
+        matrix_row_t        slave_matrix[ROWS_PER_HAND];
 
         if (peripheral_connected) {
             if (!transport_master(matrix + thisHand, slave_matrix)) {
-                error_count++;
-
-                if (error_count > ERROR_DISCONNECT_COUNT) {
-                    // reset other half if disconnected
-                    memset(&matrix[thatHand], 0, sizeof(slave_matrix));
-                    memset(slave_matrix, 0, sizeof(slave_matrix));
-
-                    changed              = true;
-                    peripheral_connected = false;
-                    dprintln("Peripheral disconnected.");
-                }
+                error = true;
+                // reset other half if disconnected
+                memset(&matrix[thatHand], 0, sizeof(slave_matrix));
+                peripheral_connected = false;
+                changed              = true;
+                dprintln("Peripheral disconnected. Attempt to re-connect in 5 seconds.");
             } else {
-                if (error_count != 0) {
-                    error_count          = 0;
+                if (error) {
+                    error                = false;
                     peripheral_connected = true;
-                    last_connection      = timer_read32();
+                    last_connection      = timer_read_fast();
                     dprintln("Peripheral connected.");
                 }
 
@@ -93,7 +88,7 @@ static inline bool matrix_post_scan(void) {
         } else if (timer_elapsed32(last_connection) > 5000) {
             dprintln("Peripheral connection attempt.");
             peripheral_connected = true;
-            last_connection      = timer_read32();
+            last_connection      = timer_read_fast();
         }
 
         matrix_scan_quantum();
@@ -107,16 +102,16 @@ static inline bool matrix_post_scan(void) {
 }
 
 uint8_t matrix_scan(void) {
-    bool         local_changed = false;
-    matrix_row_t current_matrix[ROWS_PER_HAND];
+    register bool local_changed = false;
+    matrix_row_t  current_matrix[ROWS_PER_HAND];
 
     for (size_t row_idx = 0; row_idx < ROWS_PER_HAND; row_idx++) {
         /* Drive row pin low. */
         writePinLow(row_pins[row_idx]);
         matrix_output_select_delay();
 
-        uint16_t porta = palReadPort(GPIOA);
-        uint16_t portb = palReadPort(GPIOB);
+        register uint16_t porta = palReadPort(GPIOA);
+        register uint16_t portb = palReadPort(GPIOB);
 
         /* Drive row pin high again. */
         writePinHigh(row_pins[row_idx]);
@@ -142,7 +137,7 @@ uint8_t matrix_scan(void) {
         current_matrix[row_idx] = cols;
 
         /* Wait until col pins are high again. */
-        size_t counter = 0xFF;
+        register size_t counter = 0xFF;
         while (((palReadGroup(GPIOA, 0x84, 0) != 0x84) || ((palReadGroup(GPIOB, 0xE007, 0) != 0xE007))) && counter != 0) {
             counter--;
         }
@@ -155,6 +150,6 @@ uint8_t matrix_scan(void) {
 
     debounce(raw_matrix, matrix + thisHand, ROWS_PER_HAND, local_changed);
 
-    bool remote_changed = matrix_post_scan();
+    register bool remote_changed = matrix_post_scan();
     return (uint8_t)(local_changed || remote_changed);
 }
