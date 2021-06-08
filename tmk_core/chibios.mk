@@ -334,7 +334,8 @@ else
 			$(error "risc-v gcc is not in your system PATH!")
 		endif
 	endif
-    COMPILEFLAGS += -mstrict-align
+    # Prevent unalinged memory access.
+    COMPILEFLAGS += -mstrict-align -falign-functions=4 -falign-jumps=4 -falign-loops=4
 endif
 
 
