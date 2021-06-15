@@ -102,16 +102,17 @@ static inline bool matrix_post_scan(void) {
 }
 
 uint8_t matrix_scan(void) {
-    register bool local_changed = false;
-    matrix_row_t  current_matrix[ROWS_PER_HAND];
+    bool         local_changed = false;
+    matrix_row_t current_matrix[ROWS_PER_HAND];
 
     for (size_t row_idx = 0; row_idx < ROWS_PER_HAND; row_idx++) {
         /* Drive row pin low. */
         writePinLow(row_pins[row_idx]);
-        matrix_output_select_delay();
+        while (readPin(row_pins[row_idx]) != 0)
+            ;
 
-        register uint16_t porta = palReadPort(GPIOA);
-        register uint16_t portb = palReadPort(GPIOB);
+        uint16_t porta = palReadPort(GPIOA);
+        uint16_t portb = palReadPort(GPIOB);
 
         /* Drive row pin high again. */
         writePinHigh(row_pins[row_idx]);
@@ -137,7 +138,7 @@ uint8_t matrix_scan(void) {
         current_matrix[row_idx] = cols;
 
         /* Wait until col pins are high again. */
-        register size_t counter = 0xFF;
+        size_t counter = 0xFF;
         while (((palReadGroup(GPIOA, 0x84, 0) != 0x84) || ((palReadGroup(GPIOB, 0xE007, 0) != 0xE007))) && counter != 0) {
             counter--;
         }
@@ -150,6 +151,6 @@ uint8_t matrix_scan(void) {
 
     debounce(raw_matrix, matrix + thisHand, ROWS_PER_HAND, local_changed);
 
-    register bool remote_changed = matrix_post_scan();
+    bool remote_changed = matrix_post_scan();
     return (uint8_t)(local_changed || remote_changed);
 }

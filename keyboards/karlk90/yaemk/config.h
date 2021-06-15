@@ -32,12 +32,6 @@
 #define DIODE_DIRECTION COL2ROW
 #define DEBUG_MATRIX_SCAN_RATE
 #define DEBOUNCE 5
-#if defined(__riscv)
-#    define GPIO_INPUT_PIN_DELAY 8
-#elif defined(__arm__)
-#    define GPIO_INPUT_PIN_DELAY 8
-#endif
-
 #define QMK_KEYS_PER_SCAN 8
 
 /* ENCODER CONFIG */
@@ -165,7 +159,6 @@
 
 /* VIA CONFIG */
 #if defined(VIA_ENABLE)
-#define DYNAMIC_KEYMAP_LAYER_COUNT 6
-#define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR  4095
+#    define DYNAMIC_KEYMAP_LAYER_COUNT 6
+#    define DYNAMIC_KEYMAP_EEPROM_MAX_ADDR 4095
 #endif
-
