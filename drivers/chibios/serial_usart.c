@@ -38,6 +38,46 @@ static inline bool __attribute__((nonnull)) receive(uint8_t* destination, const 
 static inline bool __attribute__((nonnull)) send(const uint8_t* source, const size_t size);
 static inline int  initiate_transaction(uint8_t sstd_index);
 static inline void usart_clear(void);
+static inline void usart_discard_bytes(size_t n);
+
+/**
+ * @brief   Discard bytes from the serial driver input queue, it is used in half-duplex mode.
+ * @details This function is a copy of iq_read, without the memcpy calls to save some cycles.
+ *
+ * @param n Bytes to discard from the input queue.
+ */
+static void usart_discard_bytes(size_t n) {
+    input_queue_t* iqp = &serial_driver->iqueue;
+    size_t         s1, s2;
+    size_t         bytes_to_discard = n;
+
+    osalDbgCheck(n > 0U);
+    while (bytes_to_discard > 0) {
+        osalSysLock();
+        /* Number of bytes that can be read in a single atomic operation.*/
+        if (n > iqGetFullI(iqp)) {
+            n = iqGetFullI(iqp);
+        }
+
+        /* Number of bytes before buffer limit.*/
+        s1 = (size_t)(iqp->q_top - iqp->q_rdptr);
+
+        if (n < s1) {
+            iqp->q_rdptr += n;
+        } else if (n > s1) {
+            s2           = n - s1;
+            iqp->q_rdptr = iqp->q_buffer + s2;
+        } else {
+            iqp->q_rdptr = iqp->q_buffer;
+        }
+
+        iqp->q_counter -= n;
+        osalSysUnlock();
+
+        bytes_to_discard -= n;
+        n = bytes_to_discard;
+    }
+}
 
 /**
  * @brief Clear the receive input queue.
@@ -54,7 +94,8 @@ static inline void usart_clear(void) {
         osalSysUnlock();
         /* Allow pending interrupts to preempt.
          * Do not merge the lock/unlock blocks into one
-         * or the code will not work properly. */
+         * or the code will not work properly.
+         * The empty read adds a tiny amount of delay. */
         (void)queue_not_empty;
         osalSysLock();
         queue_not_empty = !iqIsEmptyI(&serial_driver->iqueue);
@@ -74,7 +115,7 @@ static inline bool send(const uint8_t* source, const size_t size) {
 #if !defined(SERIAL_USART_FULL_DUPLEX)
     if (success) {
         /* Half duplex fills the input queue with the data we wrote - just throw it away. */
-        usart_clear();
+        usart_discard_bytes(size);
     }
 #endif
 
@@ -103,7 +144,6 @@ __attribute__((weak)) void usart_init(void) {
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_STM32_ALTERNATE_OPENDRAIN);
 #        else
     palSetLineMode(SERIAL_USART_TX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_TX_PAL_MODE) | PAL_STM32_OTYPE_OPENDRAIN);
-    palSetLineMode(SERIAL_USART_RX_PIN, PAL_MODE_ALTERNATE(SERIAL_USART_RX_PAL_MODE) | PAL_STM32_OTYPE_OPENDRAIN);
 #        endif
 
 #        if defined(USART_REMAP)
