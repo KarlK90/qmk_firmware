@@ -2,7 +2,7 @@
 
 void keyboard_post_init_user(void) {
 #if defined(__riscv)
-    // Free B3 pin.
+    // Free B4 pin.
     AFIO->MAPR |= AFIO_PCF0_SWJ_CFG_NOJNTRST;
 #endif
     // Customise these values to desired behaviour

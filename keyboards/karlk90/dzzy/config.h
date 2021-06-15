@@ -7,7 +7,7 @@
 #define FORCE_NKRO
 
 /* Device descriptor parameters */
-#define VENDOR_ID  0x445A   // DZ
+#define VENDOR_ID 0x445A   // DZ
 #define PRODUCT_ID 0x5A59  // ZY
 #define DEVICE_VER 0x0001
 #define MANUFACTURER KARLK90
@@ -32,12 +32,6 @@
 #define DIODE_DIRECTION ROW2COL
 #define DEBUG_MATRIX_SCAN_RATE
 #define DEBOUNCE 5
-
-#if defined(__riscv)
-#    define GPIO_INPUT_PIN_DELAY 15
-#elif defined(__arm__)
-#    define GPIO_INPUT_PIN_DELAY 15
-#endif
 
 #define QMK_KEYS_PER_SCAN 8
 

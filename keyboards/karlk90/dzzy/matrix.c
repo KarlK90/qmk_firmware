@@ -20,16 +20,17 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
 
     for (size_t row_idx = 0; row_idx < MATRIX_ROWS; row_idx++) {
         writePinHigh(row_pins[row_idx]);
-        matrix_output_select_delay();
+        while (readPin(row_pins[row_idx]) != 1)
+            ;
 
         raw_matrix[row_idx] = (matrix_row_t)palReadGroup(GPIOA, 0x3F, 0);
 
         writePinLow(row_pins[row_idx]);
 
         /* Wait until col pins are low again. */
-        size_t counter = 0;
-        while ((palReadGroup(GPIOA, 0x3F, 0) != 0) && counter < 350) {
-            counter++;
+        size_t counter = 0xFF;
+        while ((palReadGroup(GPIOA, 0x3F, 0) != 0) && counter != 0) {
+            counter--;
         }
     }
 

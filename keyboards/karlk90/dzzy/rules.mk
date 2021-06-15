@@ -26,13 +26,12 @@ ALLOW_WARNINGS =   yes
 # QMK features 
 CONSOLE_ENABLE                     = no
 CUSTOM_MATRIX                      = lite
-DEBOUNCE_TYPE                      = asym_eager_defer_pk
-EEPROM_DRIVER                      = transient
+EEPROM_DRIVER                      = spi
 ENCODER_ENABLE                     = no
 EXTRAKEY_ENABLE                    = no
 KEYBOARD_SHARED_EP                 = yes
 MOUSEKEY_ENABLE                    = no
 NKRO_ENABLE                        = yes
 REGISTER_MULTIPLE_KEYEVENTS_ENABLE = yes
-VIA_ENABLE                         = no
+VIA_ENABLE                         = yes
 WPM_ENABLE                         = no
