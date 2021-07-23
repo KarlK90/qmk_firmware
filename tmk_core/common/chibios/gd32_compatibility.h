@@ -1,7 +1,7 @@
 #pragma once
 
 /* GD32VF103 has the same API as STM32F103, but uses different names for literally the same thing.
- * As of 7.3.2021 QMK is tailored to use STM32 defines/names, for compatibility sake
+ * As of 23.7.2021 QMK is tailored to use STM32 defines/names, for compatibility sake
  * we just redefine the GD32 names. */
 
 /* Close your eyes kids. */
@@ -36,6 +36,37 @@
 #define cr3 ctl2
 #define dier dmainten
 
+/* ADC redefines */
+#if HAL_USE_ADC
+#    define STM32_ADC_USE_ADC1 GD32_ADC_USE_ADC0
+
+#    define smpr1 sampt0
+#    define smpr2 sampt1
+#    define sqr1 rsq0
+#    define sqr2 rsq1
+#    define sqr3 rsq2
+
+#    define ADC_SMPR2_SMP_AN0 ADC_SAMPT1_SMP_SPT0
+#    define ADC_SMPR2_SMP_AN1 ADC_SAMPT1_SMP_SPT1
+#    define ADC_SMPR2_SMP_AN2 ADC_SAMPT1_SMP_SPT2
+#    define ADC_SMPR2_SMP_AN3 ADC_SAMPT1_SMP_SPT3
+#    define ADC_SMPR2_SMP_AN4 ADC_SAMPT1_SMP_SPT4
+#    define ADC_SMPR2_SMP_AN5 ADC_SAMPT1_SMP_SPT5
+#    define ADC_SMPR2_SMP_AN6 ADC_SAMPT1_SMP_SPT6
+#    define ADC_SMPR2_SMP_AN7 ADC_SAMPT1_SMP_SPT7
+#    define ADC_SMPR2_SMP_AN8 ADC_SAMPT1_SMP_SPT8
+#    define ADC_SMPR2_SMP_AN9 ADC_SAMPT1_SMP_SPT9
+
+#    define ADC_SMPR1_SMP_AN10 ADC_SAMPT0_SMP_SPT10
+#    define ADC_SMPR1_SMP_AN11 ADC_SAMPT0_SMP_SPT11
+#    define ADC_SMPR1_SMP_AN12 ADC_SAMPT0_SMP_SPT12
+#    define ADC_SMPR1_SMP_AN13 ADC_SAMPT0_SMP_SPT13
+#    define ADC_SMPR1_SMP_AN14 ADC_SAMPT0_SMP_SPT14
+#    define ADC_SMPR1_SMP_AN15 ADC_SAMPT0_SMP_SPT15
+
+#    define ADC_SQR3_SQ1_N ADC_RSQ2_RSQ1_N
+#endif
+
 /* FLASH redefines */
 #if defined(EEPROM_EMU_STM32F103xB)
 #    define SR STAT
@@ -54,7 +85,7 @@
 #endif
 
 /* Serial USART redefines. */
-#if defined(HAL_USE_SERIAL)
+#if HAL_USE_SERIAL
 #    if !defined(SERIAL_USART_CR1)
 #        define SERIAL_USART_CR1 (USART_CTL0_PCEN | USART_CTL0_PM | USART_CTL0_WL)  // parity enable, odd parity, 9 bit length
 #    endif
@@ -69,7 +100,7 @@
 #endif
 
 /* SPI redefines. */
-#if defined(HAL_USE_SPI)
+#if HAL_USE_SPI
 #    define SPI_CR1_LSBFIRST SPI_CTL0_LF
 #    define SPI_CR1_CPHA SPI_CTL0_CKPH
 #    define SPI_CR1_CPOL SPI_CTL0_CKPL

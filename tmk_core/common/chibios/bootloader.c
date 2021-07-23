@@ -100,8 +100,8 @@ void enter_bootloader_mode_if_requested(void) {
 #    define DBGMCU_KEY_UNLOCK 0x4B5A6978
 #    define DBGMCU_CMD_RESET 0x1
 
-__IO uint32_t *DBGMCU_KEY = DBGMCU_BASE + 0x0C;
-__IO uint32_t *DBGMCU_CMD = DBGMCU_BASE + 0x08;
+__IO uint32_t *DBGMCU_KEY = (uint32_t *)DBGMCU_BASE + 0x0CU;
+__IO uint32_t *DBGMCU_CMD = (uint32_t *)DBGMCU_BASE + 0x08U;
 
 __attribute__((weak)) void bootloader_jump(void) {
     /* The MTIMER unit of the GD32VF103 doesn't have the MSFRST
