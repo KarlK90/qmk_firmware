@@ -19,6 +19,12 @@
 #    define SPLIT_USB_DETECT // Force this on when dedicated pin is not used
 #endif
 
+#if defined(MCU_RP)
+
+#define CPU_CLOCK RP_CORE_CLK
+
+#endif
+
 // STM32 compatibility
 #if defined(MCU_STM32)
 #    define CPU_CLOCK STM32_SYSCLK
