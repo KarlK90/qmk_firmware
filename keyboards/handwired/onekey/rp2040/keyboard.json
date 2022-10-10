@@ -10,6 +10,15 @@
         "pin": "GP25"
     },
     "ws2812": {
-        "pin": "GP25"
+        "pin": "GP23",
+        "driver": "vendor",
+    },
+    "rgblight": {
+        "driver": "ws2812",
+        "led_count": 1
+    },
+    "features": {
+        "xap": true,
+        "rgblight": true
     }
 }
