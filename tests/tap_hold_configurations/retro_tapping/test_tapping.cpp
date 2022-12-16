@@ -34,11 +34,11 @@ TEST_F(Tapping, HoldA_SHFT_T_KeyReportsShift) {
 
     EXPECT_NO_REPORT(driver);
     mod_tap_hold_key.press();
-    idle_for(TAPPING_TERM);
+    idle_for(mod_tap_hold_key.timestamp_pressed + TAPPING_TERM);
     testing::Mock::VerifyAndClearExpectations(&driver);
 
     EXPECT_REPORT(driver, (KC_LSFT));
-    run_one_scan_loop();
+    idle_for(2);
     testing::Mock::VerifyAndClearExpectations(&driver);
 
     EXPECT_EMPTY_REPORT(driver);

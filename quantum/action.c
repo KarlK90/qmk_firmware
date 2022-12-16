@@ -70,6 +70,7 @@ __attribute__((weak)) bool pre_process_record_quantum(keyrecord_t *record) {
  * FIXME: Needs documentation.
  */
 void action_exec(keyevent_t event) {
+
     if (IS_EVENT(event)) {
         ac_dprintf("\n---- action_exec: start -----\n");
         ac_dprintf("EVENT: ");
@@ -93,7 +94,30 @@ void action_exec(keyevent_t event) {
 #endif
 
     keyrecord_t record = {.event = event};
+    
+    process_oneshot_timeout();
 
+#ifndef NO_ACTION_TAPPING
+#    if defined(AUTO_SHIFT_ENABLE) && defined(RETRO_SHIFT)
+    if (event.pressed) {
+        retroshift_poll_time(&event);
+    }
+#    endif
+    if (IS_NOEVENT(event) || pre_process_record_quantum(&record)) {
+        action_tapping_process(record);
+    }
+#else
+    if (IS_NOEVENT(event) || pre_process_record_quantum(&record)) {
+        process_record(&record);
+    }
+
+    ac_dprintf("processed: ");
+    debug_record(record);
+    dprintln();
+#endif
+}
+
+void process_oneshot_timeout(void) {
 #ifndef NO_ACTION_ONESHOT
     if (keymap_config.oneshot_enable) {
 #    if (defined(ONESHOT_TIMEOUT) && (ONESHOT_TIMEOUT > 0))
@@ -109,26 +133,6 @@ void action_exec(keyevent_t event) {
         }
 #        endif
 #    endif
-    }
-#endif
-
-#ifndef NO_ACTION_TAPPING
-#    if defined(AUTO_SHIFT_ENABLE) && defined(RETRO_SHIFT)
-    if (event.pressed) {
-        retroshift_poll_time(&event);
-    }
-#    endif
-    if (IS_NOEVENT(record.event) || pre_process_record_quantum(&record)) {
-        action_tapping_process(record);
-    }
-#else
-    if (IS_NOEVENT(record.event) || pre_process_record_quantum(&record)) {
-        process_record(&record);
-    }
-    if (IS_EVENT(record.event)) {
-        ac_dprintf("processed: ");
-        debug_record(record);
-        dprintln();
     }
 #endif
 }

@@ -44,6 +44,7 @@ struct KeymapKey {
     const keypos_t position;
     const uint16_t code;
     std::string    name;
+    uint32_t       timestamp_pressed;
     /* Sometimes the keycode does not match the code that is send in the usb report, so we provide it here. */
     const uint16_t report_code;
 
@@ -52,5 +53,4 @@ struct KeymapKey {
         assert(position.col <= MATRIX_COLS);
         assert(position.row <= MATRIX_ROWS);
     }
-    uint32_t timestamp_pressed;
 };

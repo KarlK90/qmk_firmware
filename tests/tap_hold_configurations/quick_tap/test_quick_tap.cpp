@@ -63,7 +63,7 @@ TEST_F(QuickTap, tap_regular_key_while_mod_tap_key_is_held) {
     EXPECT_REPORT(driver, (KC_LSFT, KC_A));
     EXPECT_REPORT(driver, (KC_LSFT));
     EXPECT_EMPTY_REPORT(driver);
-    idle_for(TAPPING_TERM - 3);
+    idle_for(mod_tap_key.timestamp_pressed + TAPPING_TERM + 1);
     testing::Mock::VerifyAndClearExpectations(&driver);
 }
 
@@ -103,7 +103,7 @@ TEST_F(QuickTap, tap_mod_tap_key_while_mod_tap_key_is_held) {
     EXPECT_REPORT(driver, (KC_LSFT, KC_A));
     EXPECT_REPORT(driver, (KC_LSFT));
     EXPECT_EMPTY_REPORT(driver);
-    idle_for(TAPPING_TERM - 3);
+    idle_for(first_mod_tap_key.timestamp_pressed + TAPPING_TERM + 1);
     testing::Mock::VerifyAndClearExpectations(&driver);
 }
 

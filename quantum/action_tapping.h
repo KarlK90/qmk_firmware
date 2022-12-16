@@ -40,6 +40,7 @@ uint16_t get_event_keycode(keyevent_t event, bool update_layer_cache);
 void     action_tapping_process(keyrecord_t record);
 #endif
 
+void     process_tick_event(uint16_t now);
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record);
 uint16_t get_quick_tap_term(uint16_t keycode, keyrecord_t *record);
 bool     get_permissive_hold(uint16_t keycode, keyrecord_t *record);

@@ -65,12 +65,13 @@ __attribute__((weak)) bool get_hold_on_other_key_press(uint16_t keycode, keyreco
 #        include "process_auto_shift.h"
 #    endif
 
-static keyrecord_t tapping_key                         = {};
-static keyrecord_t waiting_buffer[WAITING_BUFFER_SIZE] = {};
-static uint8_t     waiting_buffer_head                 = 0;
-static uint8_t     waiting_buffer_tail                 = 0;
+static keyrecord_t  tapping_key                         = {};
+static keyrecord_t  waiting_buffer[WAITING_BUFFER_SIZE] = {};
+static uint8_t      waiting_buffer_head                 = 0;
+static uint8_t      waiting_buffer_tail                 = 0;
 
 static bool process_tapping(keyrecord_t *record);
+void        process_waiting_buffer(void);
 static bool waiting_buffer_enq(keyrecord_t record);
 static void waiting_buffer_clear(void);
 static bool waiting_buffer_typed(keyevent_t event);
@@ -104,6 +105,13 @@ void action_tapping_process(keyrecord_t record) {
     if (IS_EVENT(record.event) && waiting_buffer_head != waiting_buffer_tail) {
         ac_dprintf("---- action_exec: process waiting_buffer -----\n");
     }
+    process_waiting_buffer();
+    if (IS_EVENT(record.event)) {
+        ac_dprintf("\n");
+    }
+}
+
+void process_waiting_buffer(void) {
     for (; waiting_buffer_tail != waiting_buffer_head; waiting_buffer_tail = (waiting_buffer_tail + 1) % WAITING_BUFFER_SIZE) {
         if (process_tapping(&waiting_buffer[waiting_buffer_tail])) {
             ac_dprintf("processed: waiting_buffer[%u] =", waiting_buffer_tail);
@@ -113,9 +121,25 @@ void action_tapping_process(keyrecord_t record) {
             break;
         }
     }
-    if (IS_EVENT(record.event)) {
-        ac_dprintf("\n");
+}
+
+void process_tick_event(uint16_t now) {
+    process_oneshot_timeout();
+
+    if (!WITHIN_TAPPING_TERM((keyevent_t){.time = now})) {
+        if (IS_TAPPING_PRESSED() && tapping_key.tap.count == 0) {
+            ac_dprintf("Tapping: Timeout - not a tap\n");
+            process_record(&tapping_key);
+            tapping_key = (keyrecord_t){};
+            debug_tapping_key();
+        } else if (IS_TAPPING_RELEASED()) {
+            ac_dprintf("Tapping: Timeout - after releasing last tap\n");
+            tapping_key = (keyrecord_t){};
+            debug_tapping_key();
+        }
     }
+
+    process_waiting_buffer();
 }
 
 /* Some conditionally defined helper macros to keep process_tapping more
