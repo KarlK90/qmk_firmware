@@ -168,9 +168,10 @@ bool process_tapping(keyrecord_t *keyp) {
     // state machine is in the "reset" state, no tapping key is to be
     // processed
     if (IS_NOEVENT(tapping_key.event)) {
-        if (!IS_EVENT(event)) {
-            // early return for tick events
-        } else if (event.pressed && is_tap_record(keyp)) {
+        if (IS_NOEVENT(event)) {
+            return true;
+        }
+        if (event.pressed && is_tap_record(keyp)) {
             // the currently pressed key is a tapping key, therefore transition
             // into the "pressed" tapping key state
             ac_dprintf("Tapping: Start(Press tap key).\n");
