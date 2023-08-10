@@ -123,6 +123,7 @@ void usb_endpoint_in_stop(usb_endpoint_in_t *endpoint) {
     endpoint->config.usbp->in_params[endpoint->config.ep - 1U] = NULL;
 
     obqResetI(&endpoint->obqueue);
+    endpoint->report_storage->reset_report(endpoint->report_storage->reports);
     osalOsRescheduleS();
     osalSysUnlock();
 }
@@ -177,6 +178,7 @@ void usb_endpoint_out_configure_cb(usb_endpoint_out_t *endpoint) {
 void usb_endpoint_in_tx_complete_cb(USBDriver *usbp, usbep_t ep) {
     usb_endpoint_in_t *endpoint = usbp->in_params[ep - 1U];
     size_t             n;
+    uint8_t           *buffer;
 
     if (endpoint == NULL) {
         return;
@@ -189,11 +191,17 @@ void usb_endpoint_in_tx_complete_cb(USBDriver *usbp, usbep_t ep) {
 
     /* Freeing the buffer just transmitted, if it was not a zero size packet.*/
     if (!obqIsEmptyI(&endpoint->obqueue) && usbp->epc[ep]->in_state->txsize > 0U) {
+        /* Store the last send report in the endpoint to be retrieved by a
+         * GET_REPORT request or IDLE report handling. */
+        if (endpoint->report_storage != NULL) {
+            buffer = obqGetFullBufferI(&endpoint->obqueue, &n);
+            endpoint->report_storage->set_report(endpoint->report_storage->reports, buffer, n);
+        }
         obqReleaseEmptyBufferI(&endpoint->obqueue);
     }
 
     /* Checking if there is a buffer ready for transmission.*/
-    uint8_t *buffer = obqGetFullBufferI(&endpoint->obqueue, &n);
+    buffer = obqGetFullBufferI(&endpoint->obqueue, &n);
 
     if (buffer != NULL) {
         /* The endpoint cannot be busy, we are in the context of the callback,
@@ -279,6 +287,16 @@ void usb_endpoint_in_flush(usb_endpoint_in_t *endpoint) {
     osalDbgCheck(endpoint != NULL);
 
     obqFlush(&endpoint->obqueue);
+}
+
+bool usb_endpoint_in_is_inactive(usb_endpoint_in_t *endpoint) {
+    osalDbgCheck(endpoint != NULL);
+
+    osalSysLock();
+    bool inactive = obqIsEmptyI(&endpoint->obqueue) && !usbGetTransmitStatusI(endpoint->config.usbp, endpoint->config.ep);
+    osalSysUnlock();
+
+    return inactive;
 }
 
 bool usb_endpoint_out_receive(usb_endpoint_out_t *endpoint, uint8_t *data, size_t size, sysinterval_t timeout) {
