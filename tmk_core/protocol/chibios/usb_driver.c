@@ -199,7 +199,7 @@ void usb_endpoint_in_tx_complete_cb(USBDriver *usbp, usbep_t ep) {
     osalSysLockFromISR();
 
     /* Freeing the buffer just transmitted, if it was not a zero size packet.*/
-    if (usbp->epc[ep]->in_state->txsize > 0U) {
+    if (!obqIsEmptyI(&endpoint->obqueue) && usbp->epc[ep]->in_state->txsize > 0U) {
         obqReleaseEmptyBufferI(&endpoint->obqueue);
     }
 
