@@ -172,6 +172,13 @@ void usb_event_queue_init(void);
 /* Task to dequeue and execute any handlers for the USB events on the main thread */
 void usb_event_queue_task(void);
 
+/* ----------------
+ * USB Idle handler
+ * ----------------
+ */
+
+ void usb_idle_task(void);
+
 /* --------------
  * Console header
  * --------------

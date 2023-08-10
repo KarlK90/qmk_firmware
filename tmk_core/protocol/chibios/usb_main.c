@@ -19,6 +19,7 @@
 
 #include "host.h"
 #include "suspend.h"
+#include "timer.h"
 #ifdef SLEEP_LED_ENABLE
 #    include "sleep_led.h"
 #    include "led.h"
@@ -44,13 +45,13 @@ extern keymap_config_t keymap_config;
 #    define usb_lld_disconnect_bus(usbp)
 #endif
 
-uint8_t _Alignas(2) keyboard_idle          = 0;
-uint8_t _Alignas(2) keyboard_protocol      = 1;
-uint8_t                keyboard_led_state  = 0;
-uint8_t                keyboard_idle_count = 0;
-static virtual_timer_t keyboard_idle_timer;
+uint8_t _Alignas(2) keyboard_idle     = 0;
+uint8_t _Alignas(2) keyboard_protocol = 1;
+uint8_t keyboard_led_state            = 0;
+uint8_t keyboard_idle_count           = 0;
 
-static void keyboard_idle_timer_cb(struct ch_virtual_timer *, void *arg);
+void send_keyboard(report_keyboard_t *report);
+
 static bool send_report(usb_endpoint_in_lut_t endpoint, void *report, size_t size);
 static bool __attribute__((__unused__)) send_report_buffered(usb_endpoint_in_lut_t endpoint, void *report, size_t size);
 static void __attribute__((__unused__)) flush_report_buffered(usb_endpoint_in_lut_t endpoint);
@@ -440,16 +441,6 @@ static bool usb_requests_hook_cb(USBDriver *usbp) {
                     case HID_SET_PROTOCOL:
                         if ((usbp->setup[4] == KEYBOARD_INTERFACE) && (usbp->setup[5] == 0)) { /* wIndex */
                             keyboard_protocol = ((usbp->setup[2]) != 0x00);                    /* LSB(wValue) */
-#ifdef NKRO_ENABLE
-                            if (!keyboard_protocol && keyboard_idle) {
-#else  /* NKRO_ENABLE */
-                            if (keyboard_idle) {
-#endif /* NKRO_ENABLE */
-                                /* arm the idle timer if boot protocol & idle */
-                                osalSysLockFromISR();
-                                chVTSetI(&keyboard_idle_timer, 4 * TIME_MS2I(keyboard_idle), keyboard_idle_timer_cb, (void *)usbp);
-                                osalSysUnlockFromISR();
-                            }
                         }
                         usbSetupTransfer(usbp, NULL, 0, NULL);
                         return TRUE;
@@ -457,16 +448,6 @@ static bool usb_requests_hook_cb(USBDriver *usbp) {
 
                     case HID_SET_IDLE:
                         keyboard_idle = usbp->setup[3]; /* MSB(wValue) */
-                                                        /* arm the timer */
-#ifdef NKRO_ENABLE
-                        if (!keymap_config.nkro && keyboard_idle) {
-#else  /* NKRO_ENABLE */
-                        if (keyboard_idle) {
-#endif /* NKRO_ENABLE */
-                            osalSysLockFromISR();
-                            chVTSetI(&keyboard_idle_timer, 4 * TIME_MS2I(keyboard_idle), keyboard_idle_timer_cb, (void *)usbp);
-                            osalSysUnlockFromISR();
-                        }
                         usbSetupTransfer(usbp, NULL, 0, NULL);
                         return TRUE;
                         break;
@@ -521,8 +502,6 @@ void init_usb_driver(USBDriver *usbp) {
     wait_ms(50);
     usbStart(usbp, &usbcfg);
     usbConnectBus(usbp);
-
-    chVTObjectInit(&keyboard_idle_timer);
 }
 
 __attribute__((weak)) void restart_usb_driver(USBDriver *usbp) {
@@ -548,37 +527,19 @@ __attribute__((weak)) void restart_usb_driver(USBDriver *usbp) {
  * ---------------------------------------------------------
  */
 
-/* Idle requests timer code
- * callback (called from ISR, unlocked state) */
-static void keyboard_idle_timer_cb(struct ch_virtual_timer *timer, void *arg) {
-    (void)timer;
-    USBDriver *usbp = (USBDriver *)arg;
+void usb_idle_task(void) {
+    static fast_timer_t last_idle_report;
 
-    osalSysLockFromISR();
-
-    /* check that the states of things are as they're supposed to */
-    if (usbGetDriverStateI(usbp) != USB_ACTIVE) {
-        /* do not rearm the timer, should be enabled on IDLE request */
-        osalSysUnlockFromISR();
-        return;
-    }
-
+    if (keyboard_idle && keyboard_protocol
 #ifdef NKRO_ENABLE
-    if (!keymap_config.nkro && keyboard_idle && keyboard_protocol) {
-#else  /* NKRO_ENABLE */
-    if (keyboard_idle && keyboard_protocol) {
-#endif /* NKRO_ENABLE */
-        /* TODO: are we sure we want the KBD_ENDPOINT? */
-        if (!usbGetTransmitStatusI(usbp, KEYBOARD_IN_EPNUM)) {
-            usbStartTransmitI(usbp, KEYBOARD_IN_EPNUM, (uint8_t *)&keyboard_report_sent, KEYBOARD_EPSIZE);
-        }
-        /* rearm the timer */
-        chVTSetI(&keyboard_idle_timer, 4 * TIME_MS2I(keyboard_idle), keyboard_idle_timer_cb, (void *)usbp);
-    }
+        && !keymap_config.nkro
+#endif
+        && (timer_elapsed_fast(last_idle_report) >= keyboard_idle * 4))
 
-    /* do not rearm the timer if the condition above fails
-     * it should be enabled again on either IDLE or SET_PROTOCOL requests */
-    osalSysUnlockFromISR();
+    {
+        send_keyboard(&keyboard_report_sent);
+        last_idle_report = timer_read_fast();
+    }
 }
 
 /* LED status */
