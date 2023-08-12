@@ -32,7 +32,9 @@ enum hid_report_ids {
     REPORT_ID_PROGRAMMABLE_BUTTON,
     REPORT_ID_NKRO,
     REPORT_ID_JOYSTICK,
-    REPORT_ID_DIGITIZER
+    REPORT_ID_DIGITIZER,
+    // Enum starts at 1, so count is the last value
+    REPORT_ID_COUNT = REPORT_ID_DIGITIZER 
 };
 
 /* Mouse buttons */
