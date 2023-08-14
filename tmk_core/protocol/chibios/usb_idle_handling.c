@@ -13,9 +13,14 @@
 
 extern usb_endpoint_in_t usb_endpoints_in[USB_ENDPOINT_IN_COUNT];
 
+static bool run_idle_task = false;
+
 void usb_set_idle_rate(usb_idle_timer_t *timers, uint8_t report_id, uint8_t idle_rate) {
     (void)report_id;
+
     timers[0].idle_rate = idle_rate * 4;
+
+    run_idle_task |= idle_rate != 0;
 }
 
 uint8_t usb_get_idle_rate(usb_idle_timer_t *timers, uint8_t report_id) {
@@ -48,6 +53,8 @@ void usb_shared_set_idle_rate(usb_idle_timer_t *timers, uint8_t report_id, uint8
         return;
     }
     timers[report_id - 1].idle_rate = idle_rate * 4;
+
+    run_idle_task |= idle_rate != 0;
 }
 
 uint8_t usb_shared_get_idle_rate(usb_idle_timer_t *timers, uint8_t report_id) {
@@ -80,7 +87,12 @@ bool usb_shared_idle_timer_elapsed(usb_idle_timer_t *timers, uint8_t report_id) 
 }
 
 void usb_idle_task(void) {
+    if (!run_idle_task) {
+        return;
+    }
+
     static usb_fs_report_t report;
+    bool                   non_zero_idle_rate_found = false;
 
     for (int i = 0; i < USB_ENDPOINT_IN_COUNT; i++) {
         usb_report_storage_t *report_storage = usb_endpoints_in[i].report_storage;
@@ -93,6 +105,10 @@ void usb_idle_task(void) {
 #if defined(SHARED_EP_ENABLE)
         if (i == USB_ENDPOINT_IN_SHARED) {
             for (int j = 1; j <= REPORT_ID_COUNT; j++) {
+                chSysLock();
+                non_zero_idle_rate_found |= idle_timers->get_idle(idle_timers->timers, j) != 0;
+                chSysUnlock();
+
                 if (idle_timers->idle_timer_elasped(idle_timers->timers, j)) {
                     chSysLock();
                     report_storage->get_report(report_storage->reports, j, &report);
@@ -103,6 +119,11 @@ void usb_idle_task(void) {
             continue;
         }
 #endif
+
+        chSysLock();
+        non_zero_idle_rate_found |= idle_timers->get_idle(idle_timers->timers, 0) != 0;
+        chSysUnlock();
+
         if (idle_timers->idle_timer_elasped(idle_timers->timers, 0)) {
             chSysLock();
             report_storage->get_report(report_storage->reports, 0, &report);
@@ -110,6 +131,8 @@ void usb_idle_task(void) {
             send_report(i, &report.data, report.length);
         }
     }
+
+    run_idle_task = non_zero_idle_rate_found;
 }
 
 bool usb_get_idle_cb(USBDriver *driver) {
@@ -124,7 +147,7 @@ bool usb_get_idle_cb(USBDriver *driver) {
             break;
 #endif
         case SHARED_INTERFACE:
-            uint8_t report_id = usbp->setup[2];
+            uint8_t report_id = driver->setup[2];
             idle_timers       = usb_endpoints_in[USB_ENDPOINT_IN_SHARED].idle_timers;
             idle_rate         = idle_timers->get_idle(idle_timers->timers, report_id);
             break;
@@ -181,7 +204,7 @@ bool usb_set_idle_cb(USBDriver *driver) {
 #endif
 #if defined(SHARED_EP_ENABLE)
         case SHARED_INTERFACE:
-            uint8_t report_id = usbp->setup[2];
+            uint8_t report_id = driver->setup[2];
             idle_timers       = usb_endpoints_in[USB_ENDPOINT_IN_SHARED].idle_timers;
             idle_timers->set_idle(idle_timers->timers, report_id, idle_rate);
             break;
