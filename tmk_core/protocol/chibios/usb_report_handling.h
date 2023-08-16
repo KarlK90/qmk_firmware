@@ -18,8 +18,8 @@ typedef struct {
 
 typedef struct {
     usb_fs_report_t *reports;
-    void (*get_report)(usb_fs_report_t *, uint8_t, usb_fs_report_t *);
-    void (*set_report)(usb_fs_report_t *, const uint8_t *, size_t);
+    const void (*get_report)(usb_fs_report_t *, uint8_t, usb_fs_report_t *);
+    const void (*set_report)(usb_fs_report_t *, const uint8_t *, size_t);
 } usb_report_storage_t;
 
 void usb_set_report(usb_fs_report_t *reports, const uint8_t *data, size_t length);
