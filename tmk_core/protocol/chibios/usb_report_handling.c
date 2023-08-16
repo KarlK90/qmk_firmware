@@ -10,7 +10,8 @@
 #include "usb_driver.h"
 #include "report.h"
 
-extern usb_endpoint_in_t usb_endpoints_in[USB_ENDPOINT_IN_COUNT];
+extern usb_endpoint_in_t     usb_endpoints_in[USB_ENDPOINT_IN_COUNT];
+extern usb_endpoint_in_lut_t usb_endpoint_interface_lut[TOTAL_INTERFACES];
 
 void usb_set_report(usb_fs_report_t *reports, const uint8_t *data, size_t length) {
     reports[0].length = length;
@@ -42,55 +43,27 @@ void usb_shared_get_report(usb_fs_report_t *reports, uint8_t report_id, usb_fs_r
 
 bool usb_get_report_cb(USBDriver *driver) {
     static usb_fs_report_t report;
-    usb_report_storage_t  *report_storage;
-    switch (driver->setup[4]) {
-#ifndef KEYBOARD_SHARED_EP
-        case KEYBOARD_INTERFACE:
-            report_storage = usb_endpoints_in[USB_ENDPOINT_IN_KEYBOARD].report_storage;
-            report_storage->get_report(report_storage->reports, 0, &report);
-            break;
-#endif
-#ifdef SHARED_EP_ENABLE
-        case SHARED_INTERFACE:
-            uint8_t report_id = driver->setup[2];
-            report_storage    = usb_endpoints_in[USB_ENDPOINT_IN_SHARED].report_storage;
-            report_storage->get_report(report_storage->reports, report_id, &report);
-            break;
-#endif /* SHARED_EP_ENABLE */
-#if defined(MOUSE_ENABLE) && !defined(MOUSE_SHARED_EP)
-        case MOUSE_INTERFACE:
-            report_storage = usb_endpoints_in[USB_ENDPOINT_IN_MOUSE].report_storage;
-            report_storage->get_report(report_storage->reports, 0, &report);
-            break;
-#endif
-#if defined(JOYSTICK_ENABLE) && !defined(JOYSTICK_SHARED_EP)
-        case JOYSTICK_INTERFACE:
-            report_storage = usb_endpoints_in[USB_ENDPOINT_IN_JOYSTICK].report_storage;
-            report_storage->get_report(report_storage->reports, 0, &report);
-            break;
-#endif
-#if defined(DIGITIZER_ENABLE) && !defined(DIGITIZER_SHARED_EP)
-        case DIGITIZER_INTERFACE:
-            report_storage = usb_endpoints_in[USB_ENDPOINT_IN_DIGITIZER].report_storage;
-            report_storage->get_report(report_storage->reports, 0, &report);
-            break;
-#endif
-#if defined(CONSOLE_ENABLE)
-        case CONSOLE_INTERFACE:
-            report_storage = usb_endpoints_in[USB_ENDPOINT_IN_CONSOLE].report_storage;
-            report_storage->get_report(report_storage->reports, 0, &report);
-            break;
-#endif
-#if defined(RAW_ENABLE)
-        case RAW_INTERFACE:
-            report_storage = usb_endpoints_in[USB_ENDPOINT_IN_RAW].report_storage;
-            report_storage->get_report(report_storage->reports, 0, &report);
-            break;
-#endif
-        default:
-            // Unknown interface
-            return false;
+
+    uint8_t interface = driver->setup[4];
+    uint8_t report_id = driver->setup[2];
+
+    if (!IS_VALID_INTERFACE(interface) || !IS_VALID_REPORT_ID(report_id)) {
+        return false;
     }
+
+    usb_endpoint_in_lut_t ep = usb_endpoint_interface_lut[interface];
+
+    if (!IS_VALID_USB_ENDPOINT_IN_LUT(ep)) {
+        return false;
+    }
+
+    usb_report_storage_t *report_storage = usb_endpoints_in[ep].report_storage;
+
+    if (report_storage == NULL) {
+        return false;
+    }
+
+    report_storage->get_report(report_storage->reports, report_id, &report);
 
     usbSetupTransfer(driver, (uint8_t *)report.data, report.length, NULL);
 

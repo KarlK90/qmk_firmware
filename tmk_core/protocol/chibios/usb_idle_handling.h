@@ -17,9 +17,9 @@ typedef struct {
 
 typedef struct {
     usb_idle_timer_t *timers;
-    void (*set_idle)(usb_idle_timer_t *, uint8_t, uint8_t);
-    uint8_t (*get_idle)(usb_idle_timer_t *, uint8_t);
-    bool (*idle_timer_elasped)(usb_idle_timer_t *, uint8_t);
+    const void (*set_idle)(usb_idle_timer_t *, uint8_t, uint8_t);
+    const uint8_t (*get_idle)(usb_idle_timer_t *, uint8_t);
+    const bool (*idle_timer_elasped)(usb_idle_timer_t *, uint8_t);
 } usb_idle_timers_t;
 
 void    usb_idle_task(void);
