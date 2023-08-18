@@ -16,7 +16,6 @@
 #include <string.h>
 
 #include "usb_main.h"
-#include "usb_idle_handling.h"
 #include "usb_report_handling.h"
 
 #include "host.h"
