@@ -9,7 +9,6 @@
 #include <hal_buffers.h>
 #include "usb_descriptor.h"
 #include "chibios_config.h"
-#include "usb_idle_handling.h"
 #include "usb_report_handling.h"
 #include "string.h"
 #include "timer.h"
@@ -34,30 +33,29 @@
  *   Given `USBv1/hal_usb_lld.h` marks the field as "not currently used" this code file
  *   makes the assumption this is safe to avoid littering with preprocessor directives.
  */
-#define QMK_USB_ENDPOINT_IN(mode, ep_size, ep_num, _buffer_capacity, _usb_requests_cb, _report_storage, _idle_timers) \
-    {                                                                                                                 \
-        .usb_requests_cb    = _usb_requests_cb, /**/                                                                  \
-            .report_storage = _report_storage,  /**/                                                                  \
-            .idle_timers    = _idle_timers,     /**/                                                                  \
-            .ep_config =                                                                                              \
-                {                                                                                                     \
-                    mode,                           /* EP Mode */                                                     \
-                    NULL,                           /* SETUP packet notification callback */                          \
-                    usb_endpoint_in_tx_complete_cb, /* IN notification callback */                                    \
-                    NULL,                           /* OUT notification callback */                                   \
-                    ep_size,                        /* IN maximum packet size */                                      \
-                    0,                              /* OUT maximum packet size */                                     \
-                    NULL,                           /* IN Endpoint state */                                           \
-                    NULL,                           /* OUT endpoint state */                                          \
-                    usb_lld_endpoint_fields         /* USB driver specific endpoint fields */                         \
-                },                                                                                                    \
-        .config = {                                                                                                   \
-            .usbp            = &USB_DRIVER,                                                                           \
-            .ep              = ep_num,                                                                                \
-            .buffer_capacity = _buffer_capacity,                                                                      \
-            .buffer_size     = ep_size,                                                                               \
-            .buffer          = (_Alignas(4) uint8_t[BQ_BUFFER_SIZE(_buffer_capacity, ep_size)]){0},                   \
-        }                                                                                                             \
+#define QMK_USB_ENDPOINT_IN(mode, ep_size, ep_num, _buffer_capacity, _usb_requests_cb, _report_storage) \
+    {                                                                                                   \
+        .usb_requests_cb    = _usb_requests_cb, /**/                                                    \
+            .report_storage = _report_storage,  /**/                                                    \
+            .ep_config =                                                                                \
+                {                                                                                       \
+                    mode,                           /* EP Mode */                                       \
+                    NULL,                           /* SETUP packet notification callback */            \
+                    usb_endpoint_in_tx_complete_cb, /* IN notification callback */                      \
+                    NULL,                           /* OUT notification callback */                     \
+                    ep_size,                        /* IN maximum packet size */                        \
+                    0,                              /* OUT maximum packet size */                       \
+                    NULL,                           /* IN Endpoint state */                             \
+                    NULL,                           /* OUT endpoint state */                            \
+                    usb_lld_endpoint_fields         /* USB driver specific endpoint fields */           \
+                },                                                                                      \
+        .config = {                                                                                     \
+            .usbp            = &USB_DRIVER,                                                             \
+            .ep              = ep_num,                                                                  \
+            .buffer_capacity = _buffer_capacity,                                                        \
+            .buffer_size     = ep_size,                                                                 \
+            .buffer          = (_Alignas(4) uint8_t[BQ_BUFFER_SIZE(_buffer_capacity, ep_size)]){0},     \
+        }                                                                                               \
     }
 
 #if !defined(USB_ENDPOINTS_ARE_REORDERABLE)
@@ -87,31 +85,30 @@
 
 #else
 
-#    define QMK_USB_ENDPOINT_IN_SHARED(mode, ep_size, ep_num, _buffer_capacity, _usb_requests_cb, _report_storage, _idle_timers) \
-        {                                                                                                                        \
-            .usb_requests_cb    = _usb_requests_cb, /**/                                                                         \
-                .is_shared      = true,             /**/                                                                         \
-                .report_storage = _report_storage,  /**/                                                                         \
-                .idle_timers    = _idle_timers,     /**/                                                                         \
-                .ep_config =                                                                                                     \
-                    {                                                                                                            \
-                        mode,                            /* EP Mode */                                                           \
-                        NULL,                            /* SETUP packet notification callback */                                \
-                        usb_endpoint_in_tx_complete_cb,  /* IN notification callback */                                          \
-                        usb_endpoint_out_rx_complete_cb, /* OUT notification callback */                                         \
-                        ep_size,                         /* IN maximum packet size */                                            \
-                        ep_size,                         /* OUT maximum packet size */                                           \
-                        NULL,                            /* IN Endpoint state */                                                 \
-                        NULL,                            /* OUT endpoint state */                                                \
-                        usb_lld_endpoint_fields          /* USB driver specific endpoint fields */                               \
-                    },                                                                                                           \
-            .config = {                                                                                                          \
-                .usbp            = &USB_DRIVER,                                                                                  \
-                .ep              = ep_num,                                                                                       \
-                .buffer_capacity = _buffer_capacity,                                                                             \
-                .buffer_size     = ep_size,                                                                                      \
-                .buffer          = (_Alignas(4) uint8_t[BQ_BUFFER_SIZE(_buffer_capacity, ep_size)]){0},                          \
-            }                                                                                                                    \
+#    define QMK_USB_ENDPOINT_IN_SHARED(mode, ep_size, ep_num, _buffer_capacity, _usb_requests_cb, _report_storage) \
+        {                                                                                                          \
+            .usb_requests_cb    = _usb_requests_cb, /**/                                                           \
+                .is_shared      = true,             /**/                                                           \
+                .report_storage = _report_storage,  /**/                                                           \
+                .ep_config =                                                                                       \
+                    {                                                                                              \
+                        mode,                            /* EP Mode */                                             \
+                        NULL,                            /* SETUP packet notification callback */                  \
+                        usb_endpoint_in_tx_complete_cb,  /* IN notification callback */                            \
+                        usb_endpoint_out_rx_complete_cb, /* OUT notification callback */                           \
+                        ep_size,                         /* IN maximum packet size */                              \
+                        ep_size,                         /* OUT maximum packet size */                             \
+                        NULL,                            /* IN Endpoint state */                                   \
+                        NULL,                            /* OUT endpoint state */                                  \
+                        usb_lld_endpoint_fields          /* USB driver specific endpoint fields */                 \
+                    },                                                                                             \
+            .config = {                                                                                            \
+                .usbp            = &USB_DRIVER,                                                                    \
+                .ep              = ep_num,                                                                         \
+                .buffer_capacity = _buffer_capacity,                                                               \
+                .buffer_size     = ep_size,                                                                        \
+                .buffer          = (_Alignas(4) uint8_t[BQ_BUFFER_SIZE(_buffer_capacity, ep_size)]){0},            \
+            }                                                                                                      \
         }
 
 /* The current assumption is that there are no standalone OUT endpoints, so the
@@ -182,7 +179,6 @@ typedef struct {
     usbreqhandler_t       usb_requests_cb;
     bool                  timed_out;
     usb_report_storage_t *report_storage;
-    usb_idle_timers_t    *idle_timers;
 } usb_endpoint_in_t;
 
 typedef struct {
