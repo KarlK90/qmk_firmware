@@ -199,6 +199,9 @@ void usb_endpoint_in_tx_complete_cb(USBDriver *usbp, usbep_t ep) {
 
     osalSysLockFromISR();
 
+    /* Sending succeded, so we can reset the timed out state. */
+    endpoint->timed_out = false;
+
     /* Freeing the buffer just transmitted, if it was not a zero size packet.*/
     if (!obqIsEmptyI(&endpoint->obqueue) && usbp->epc[ep]->in_state->txsize > 0U) {
         /* Store the last send report in the endpoint to be retrieved by a
@@ -260,21 +263,31 @@ bool usb_endpoint_in_send(usb_endpoint_in_t *endpoint, const uint8_t *data, size
     }
 
     /* Short circuit the waiting if this endpoint timed out before, e.g. if
-     * nobody is listening on this endpoint such as `hid_listen`/`qmk console`
-     * or we are in an environment with a very restricted USB stack. The reason
-     * is to not introduce micro lock-ups if the report is send periodically. */
+     * nobody is listening on this endpoint (is disconnected) such as
+     * `hid_listen`/`qmk console` or we are in an environment with a very
+     * restricted USB stack. The reason is to not introduce micro lock-ups if
+     * the report is send periodically. */
     if (endpoint->timed_out && timeout != TIME_INFINITE) {
         timeout = TIME_IMMEDIATE;
     }
 
-    const size_t sent   = obqWriteTimeout(&endpoint->obqueue, data, size, timeout);
-    endpoint->timed_out = sent == 0;
+    while (true) {
+        size_t sent = obqWriteTimeout(&endpoint->obqueue, data, size, timeout);
 
-    if (!buffered && sent > 0) {
-        obqFlush(&endpoint->obqueue);
+        if (sent < size) {
+            osalSysLock();
+            endpoint->timed_out |= sent == 0;
+            obqResetI(&endpoint->obqueue);
+            osalSysUnlock();
+            continue;
+        }
+
+        if (!buffered) {
+            obqFlush(&endpoint->obqueue);
+        }
+
+        return true;
     }
-
-    return sent == size;
 }
 
 void usb_endpoint_in_flush(usb_endpoint_in_t *endpoint) {
