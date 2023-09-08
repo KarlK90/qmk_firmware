@@ -16,6 +16,7 @@ usb_endpoint_in_t usb_endpoints_in[USB_ENDPOINT_IN_COUNT] = {
     QMK_USB_REPORT_STORAGE(
         &usb_shared_get_report,
         &usb_shared_set_report,
+        &usb_shared_reset_report,
         &usb_shared_get_idle_rate,
         &usb_shared_set_idle_rate,
         &usb_shared_idle_timer_elapsed,
