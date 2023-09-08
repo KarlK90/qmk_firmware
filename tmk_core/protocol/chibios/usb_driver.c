@@ -129,6 +129,7 @@ void usb_endpoint_in_stop(usb_endpoint_in_t *endpoint) {
     endpoint->state                                            = ENDPOINT_STOP;
 
     obqResetI(&endpoint->obqueue);
+    endpoint->report_storage->reset_report(endpoint->report_storage->reports);
     osalOsRescheduleS();
     osalSysUnlock();
 }
