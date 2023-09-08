@@ -33,6 +33,14 @@ void usb_get_report(usb_fs_report_t **reports, uint8_t report_id, usb_fs_report_
     memcpy(&report->data, &(*reports)->data, report->length);
 }
 
+void usb_reset_report(usb_fs_report_t **reports) {
+    if (*reports == NULL) {
+        return;
+    }
+
+    memset(&(*reports)->data, 0, (*reports)->length);
+}
+
 void usb_shared_set_report(usb_fs_report_t **reports, const uint8_t *data, size_t length) {
     uint8_t report_id = data[0];
 
@@ -51,6 +59,15 @@ void usb_shared_get_report(usb_fs_report_t **reports, uint8_t report_id, usb_fs_
 
     report->length = reports[report_id]->length;
     memcpy(&report->data, &reports[report_id]->data, report->length);
+}
+
+void usb_shared_reset_report(usb_fs_report_t **reports) {
+    for (int i = 0; i <= REPORT_ID_COUNT; i++) {
+        if (reports[i] == NULL) {
+            continue;
+        }
+        memset(&reports[i]->data, 0, reports[i]->length);
+    }
 }
 
 bool usb_get_report_cb(USBDriver *driver) {

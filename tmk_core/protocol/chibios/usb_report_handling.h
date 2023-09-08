@@ -20,6 +20,7 @@ typedef struct {
     usb_fs_report_t **reports;
     const void (*get_report)(usb_fs_report_t **, uint8_t, usb_fs_report_t *);
     const void (*set_report)(usb_fs_report_t **, const uint8_t *, size_t);
+    const void (*reset_report)(usb_fs_report_t **);
     const void (*set_idle)(usb_fs_report_t **, uint8_t, uint8_t);
     const uint8_t (*get_idle)(usb_fs_report_t **, uint8_t);
     const bool (*idle_timer_elasped)(usb_fs_report_t **, uint8_t);
@@ -27,19 +28,21 @@ typedef struct {
 
 #define QMK_USB_REPORT_STROAGE_ENTRY(_report_id, _report_size) [_report_id] = &((usb_fs_report_t){.data = {[0] = _report_id}, .length = _report_size})
 
-#define QMK_USB_REPORT_STORAGE(_get_report, _set_report, _get_idle, _set_idle, _idle_timer_elasped, _report_count, _reports...) \
-    &((usb_report_storage_t){                                                                                                   \
-        .reports            = (_Alignas(4) usb_fs_report_t *[_report_count]){_reports},                                         \
-        .get_report         = _get_report,                                                                                      \
-        .set_report         = _set_report,                                                                                      \
-        .get_idle           = _get_idle,                                                                                        \
-        .set_idle           = _set_idle,                                                                                        \
-        .idle_timer_elasped = _idle_timer_elasped,                                                                              \
+#define QMK_USB_REPORT_STORAGE(_get_report, _set_report, _reset_report, _get_idle, _set_idle, _idle_timer_elasped, _report_count, _reports...) \
+    &((usb_report_storage_t){                                                                                                                  \
+        .reports            = (_Alignas(4) usb_fs_report_t *[_report_count]){_reports},                                                        \
+        .get_report         = _get_report,                                                                                                     \
+        .set_report         = _set_report,                                                                                                     \
+        .reset_report       = _reset_report,                                                                                                   \
+        .get_idle           = _get_idle,                                                                                                       \
+        .set_idle           = _set_idle,                                                                                                       \
+        .idle_timer_elasped = _idle_timer_elasped,                                                                                             \
     })
 
 #define QMK_USB_REPORT_STORAGE_DEFAULT(_report_length)                        \
     QMK_USB_REPORT_STORAGE(&usb_get_report,         /* _get_report */         \
                            &usb_set_report,         /* _set_report */         \
+                           &usb_reset_report,       /* _reset_report */       \
                            &usb_get_idle_rate,      /* _get_idle */           \
                            &usb_set_idle_rate,      /* _set_idle */           \
                            &usb_idle_timer_elapsed, /* _idle_timer_elasped */ \
@@ -52,6 +55,9 @@ void usb_shared_set_report(usb_fs_report_t **reports, const uint8_t *data, size_
 
 void usb_get_report(usb_fs_report_t **reports, uint8_t report_id, usb_fs_report_t *report);
 void usb_shared_get_report(usb_fs_report_t **reports, uint8_t report_id, usb_fs_report_t *report);
+
+void usb_reset_report(usb_fs_report_t **reports);
+void usb_shared_reset_report(usb_fs_report_t **reports);
 
 bool usb_get_report_cb(USBDriver *driver);
 
