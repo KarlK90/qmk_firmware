@@ -374,6 +374,14 @@ __attribute__((weak)) void restart_usb_driver(USBDriver *usbp) {
     usbDisconnectBus(usbp);
     usbStop(usbp);
 
+    for (int i = 0; i < USB_ENDPOINT_IN_COUNT; i++) {
+        usb_endpoint_in_stop(&usb_endpoints_in[i]);
+    }
+
+    for (int i = 0; i < USB_ENDPOINT_OUT_COUNT; i++) {
+        usb_endpoint_out_stop(&usb_endpoints_out[i]);
+    }
+
 #if USB_SUSPEND_WAKEUP_DELAY > 0
     // Some hubs, kvm switches, and monitors do
     // weird things, with USB device state bouncing
@@ -383,6 +391,16 @@ __attribute__((weak)) void restart_usb_driver(USBDriver *usbp) {
     // Pause for a while to let things settle...
     wait_ms(USB_SUSPEND_WAKEUP_DELAY);
 #endif
+
+    for (int i = 0; i < USB_ENDPOINT_IN_COUNT; i++) {
+        usb_endpoint_in_init(&usb_endpoints_in[i]);
+        usb_endpoint_in_start(&usb_endpoints_in[i]);
+    }
+
+    for (int i = 0; i < USB_ENDPOINT_OUT_COUNT; i++) {
+        usb_endpoint_out_init(&usb_endpoints_out[i]);
+        usb_endpoint_out_start(&usb_endpoints_out[i]);
+    }
 
     usbStart(usbp, &usbcfg);
     usbConnectBus(usbp);
