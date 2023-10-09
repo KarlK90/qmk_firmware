@@ -10,8 +10,8 @@
 #include "timer.h"
 
 typedef struct {
-    uint16_t     idle_rate;
-    fast_timer_t last_report;
+    time_msecs_t idle_rate;
+    systime_t    last_report;
     uint8_t      data[64];
     size_t       length;
 } usb_fs_report_t;

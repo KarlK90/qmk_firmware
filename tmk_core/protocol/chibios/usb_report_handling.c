@@ -19,7 +19,8 @@ void usb_set_report(usb_fs_report_t **reports, const uint8_t *data, size_t lengt
         return;
     }
 
-    (*reports)->length = length;
+    (*reports)->last_report = chVTGetSystemTimeX();
+    (*reports)->length      = length;
     memcpy(&(*reports)->data, data, length);
 }
 
@@ -48,7 +49,8 @@ void usb_shared_set_report(usb_fs_report_t **reports, const uint8_t *data, size_
         return;
     }
 
-    reports[report_id]->length = length;
+    reports[report_id]->last_report = chVTGetSystemTimeX();
+    reports[report_id]->length      = length;
     memcpy(&reports[report_id]->data, data, length);
 }
 
@@ -131,22 +133,14 @@ bool usb_idle_timer_elapsed(usb_fs_report_t **reports, uint8_t report_id) {
     }
 
     chSysLock();
-    uint16_t idle_rate = (*reports)->idle_rate;
+    time_msecs_t idle_rate = (*reports)->idle_rate;
     chSysUnlock();
 
     if (idle_rate == 0) {
         return false;
     }
 
-    fast_timer_t now = timer_read_fast();
-
-    bool elapsed = TIMER_DIFF_FAST(now, (*reports)->last_report) >= idle_rate;
-
-    if (elapsed) {
-        (*reports)->last_report = now;
-    }
-
-    return elapsed;
+    return chTimeI2MS(chVTTimeElapsedSinceX((*reports)->last_report)) >= idle_rate;
 }
 
 void usb_shared_set_idle_rate(usb_fs_report_t **reports, uint8_t report_id, uint8_t idle_rate) {
@@ -176,22 +170,14 @@ bool usb_shared_idle_timer_elapsed(usb_fs_report_t **reports, uint8_t report_id)
     }
 
     chSysLock();
-    uint16_t idle_rate = reports[report_id]->idle_rate;
+    time_msecs_t idle_rate = reports[report_id]->idle_rate;
     chSysUnlock();
 
     if (idle_rate == 0) {
         return false;
     }
 
-    fast_timer_t now = timer_read_fast();
-
-    bool elapsed = TIMER_DIFF_FAST(now, reports[report_id]->last_report) >= idle_rate;
-
-    if (elapsed) {
-        reports[report_id]->last_report = now;
-    }
-
-    return elapsed;
+    return chTimeI2MS(chVTTimeElapsedSinceX(reports[report_id]->last_report)) >= idle_rate;
 }
 
 void usb_idle_task(void) {
