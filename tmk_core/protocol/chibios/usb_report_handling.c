@@ -132,15 +132,16 @@ bool usb_idle_timer_elapsed(usb_fs_report_t **reports, uint8_t report_id) {
         return false;
     }
 
-    chSysLock();
-    time_msecs_t idle_rate = (*reports)->idle_rate;
-    chSysUnlock();
+    osalSysLock();
+    time_msecs_t idle_rate   = (*reports)->idle_rate;
+    systime_t    last_report = (*reports)->last_report;
+    osalSysUnlock();
 
     if (idle_rate == 0) {
         return false;
     }
 
-    return chTimeI2MS(chVTTimeElapsedSinceX((*reports)->last_report)) >= idle_rate;
+    return chTimeI2MS(chVTTimeElapsedSinceX(last_report)) >= idle_rate;
 }
 
 void usb_shared_set_idle_rate(usb_fs_report_t **reports, uint8_t report_id, uint8_t idle_rate) {
@@ -169,15 +170,16 @@ bool usb_shared_idle_timer_elapsed(usb_fs_report_t **reports, uint8_t report_id)
         return false;
     }
 
-    chSysLock();
-    time_msecs_t idle_rate = reports[report_id]->idle_rate;
-    chSysUnlock();
+    osalSysLock();
+    time_msecs_t idle_rate   = reports[report_id]->idle_rate;
+    systime_t    last_report = reports[report_id]->last_report;
+    osalSysUnlock();
 
     if (idle_rate == 0) {
         return false;
     }
 
-    return chTimeI2MS(chVTTimeElapsedSinceX(reports[report_id]->last_report)) >= idle_rate;
+    return chTimeI2MS(chVTTimeElapsedSinceX(last_report)) >= idle_rate;
 }
 
 void usb_idle_task(void) {
@@ -198,14 +200,14 @@ void usb_idle_task(void) {
 #if defined(SHARED_EP_ENABLE)
         if (ep == USB_ENDPOINT_IN_SHARED) {
             for (int report_id = 1; report_id <= REPORT_ID_COUNT; report_id++) {
-                chSysLock();
+                osalSysLock();
                 non_zero_idle_rate_found |= report_storage->get_idle(report_storage->reports, report_id) != 0;
-                chSysUnlock();
+                osalSysUnlock();
 
                 if (report_storage->idle_timer_elasped(report_storage->reports, report_id) && usb_endpoint_in_is_empty(&usb_endpoints_in[ep])) {
-                    chSysLock();
+                    osalSysLock();
                     report_storage->get_report(report_storage->reports, report_id, &report);
-                    chSysUnlock();
+                    osalSysUnlock();
                     send_report(ep, &report.data, report.length);
                 }
             }
@@ -213,14 +215,14 @@ void usb_idle_task(void) {
         }
 #endif
 
-        chSysLock();
+        osalSysLock();
         non_zero_idle_rate_found |= report_storage->get_idle(report_storage->reports, 0) != 0;
-        chSysUnlock();
+        osalSysUnlock();
 
         if (report_storage->idle_timer_elasped(report_storage->reports, 0) && usb_endpoint_in_is_empty(&usb_endpoints_in[ep])) {
-            chSysLock();
+            osalSysLock();
             report_storage->get_report(report_storage->reports, 0, &report);
-            chSysUnlock();
+            osalSysUnlock();
             send_report(ep, &report.data, report.length);
         }
     }
