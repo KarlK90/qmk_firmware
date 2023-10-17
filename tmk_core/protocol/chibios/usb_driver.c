@@ -297,6 +297,16 @@ void usb_endpoint_in_flush(usb_endpoint_in_t *endpoint) {
     obqFlush(&endpoint->obqueue);
 }
 
+bool usb_endpoint_in_is_empty(usb_endpoint_in_t *endpoint) {
+    osalDbgCheck(endpoint != NULL);
+
+    osalSysLock();
+    bool empty = obqIsEmptyI(&endpoint->obqueue);
+    osalSysUnlock();
+
+    return empty;
+}
+
 bool usb_endpoint_out_receive(usb_endpoint_out_t *endpoint, uint8_t *data, size_t size, sysinterval_t timeout) {
     osalDbgCheck((endpoint != NULL) && (data != NULL) && (size > 0U));
 

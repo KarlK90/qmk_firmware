@@ -202,7 +202,7 @@ void usb_idle_task(void) {
                 non_zero_idle_rate_found |= report_storage->get_idle(report_storage->reports, report_id) != 0;
                 chSysUnlock();
 
-                if (report_storage->idle_timer_elasped(report_storage->reports, report_id)) {
+                if (report_storage->idle_timer_elasped(report_storage->reports, report_id) && usb_endpoint_in_is_empty(&usb_endpoints_in[ep])) {
                     chSysLock();
                     report_storage->get_report(report_storage->reports, report_id, &report);
                     chSysUnlock();
@@ -217,7 +217,7 @@ void usb_idle_task(void) {
         non_zero_idle_rate_found |= report_storage->get_idle(report_storage->reports, 0) != 0;
         chSysUnlock();
 
-        if (report_storage->idle_timer_elasped(report_storage->reports, 0)) {
+        if (report_storage->idle_timer_elasped(report_storage->reports, 0) && usb_endpoint_in_is_empty(&usb_endpoints_in[ep])) {
             chSysLock();
             report_storage->get_report(report_storage->reports, 0, &report);
             chSysUnlock();
