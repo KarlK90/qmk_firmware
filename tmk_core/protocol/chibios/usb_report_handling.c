@@ -147,7 +147,7 @@ void usb_shared_set_idle_rate(usb_fs_report_t **reports, uint8_t report_id, uint
     // USB spec demands that a report_id of 0 would set the idle rate for all
     // reports of that endpoint, but this can easily lead to resource
     // exhaustion, therefore we deliberalty break the spec at this point.
-    if (report_id > REPORT_ID_COUNT || reports[report_id] == NULL) {
+    if (report_id == 0 || report_id > REPORT_ID_COUNT || reports[report_id] == NULL) {
         return;
     }
 
