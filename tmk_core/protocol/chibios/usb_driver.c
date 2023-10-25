@@ -19,7 +19,7 @@
 static void usb_start_receive(usb_endpoint_out_t *endpoint) {
     /* If the USB driver is not in the appropriate state then transactions
        must not be started.*/
-    if ((usbGetDriverStateI(endpoint->config.usbp) != USB_ACTIVE) || (endpoint->state != ENDPOINT_READY)) {
+    if ((usbGetDriverStateI(endpoint->config.usbp) != USB_ACTIVE)) {
         return;
     }
 
@@ -58,7 +58,7 @@ static void obnotify(io_buffers_queue_t *bqp) {
 
     /* If the USB endpoint is not in the appropriate state then transactions
        must not be started.*/
-    if ((usbGetDriverStateI(endpoint->config.usbp) != USB_ACTIVE) || (endpoint->state != ENDPOINT_READY)) {
+    if ((usbGetDriverStateI(endpoint->config.usbp) != USB_ACTIVE)) {
         return;
     }
 
@@ -87,14 +87,12 @@ void usb_endpoint_in_init(usb_endpoint_in_t *endpoint) {
         endpoint->ep_config.out_state = &endpoint->ep_out_state;
     }
 #endif
-    endpoint->state = ENDPOINT_STOP;
     obqObjectInit(&endpoint->obqueue, true, config->buffer, config->buffer_size, config->buffer_capacity, obnotify, endpoint);
 }
 
 void usb_endpoint_out_init(usb_endpoint_out_t *endpoint) {
     usb_endpoint_config_t *config = &endpoint->config;
     endpoint->ep_config.out_state = &endpoint->ep_out_state;
-    endpoint->state               = ENDPOINT_STOP;
     ibqObjectInit(&endpoint->ibqueue, true, config->buffer, config->buffer_size, config->buffer_capacity, ibnotify, endpoint);
 }
 
@@ -102,9 +100,8 @@ void usb_endpoint_in_start(usb_endpoint_in_t *endpoint) {
     osalDbgCheck(endpoint != NULL);
 
     osalSysLock();
-    osalDbgAssert((endpoint->state == ENDPOINT_STOP) || (endpoint->state == ENDPOINT_READY), "invalid state");
+    osalDbgAssert((usbGetDriverStateI(endpoint->config.usbp) == USB_STOP) || (usbGetDriverStateI(endpoint->config.usbp) == USB_READY), "invalid state");
     endpoint->config.usbp->in_params[endpoint->config.ep - 1U] = endpoint;
-    endpoint->state                                            = ENDPOINT_READY;
     endpoint->timed_out                                        = false;
     osalSysUnlock();
 }
@@ -113,9 +110,8 @@ void usb_endpoint_out_start(usb_endpoint_out_t *endpoint) {
     osalDbgCheck(endpoint != NULL);
 
     osalSysLock();
-    osalDbgAssert((endpoint->state == ENDPOINT_STOP) || (endpoint->state == ENDPOINT_READY), "invalid state");
+    osalDbgAssert((usbGetDriverStateI(endpoint->config.usbp) == USB_STOP) || (usbGetDriverStateI(endpoint->config.usbp) == USB_READY), "invalid state");
     endpoint->config.usbp->out_params[endpoint->config.ep - 1U] = endpoint;
-    endpoint->state                                             = ENDPOINT_READY;
     endpoint->timed_out                                         = false;
     osalSysUnlock();
 }
@@ -124,9 +120,7 @@ void usb_endpoint_in_stop(usb_endpoint_in_t *endpoint) {
     osalDbgCheck(endpoint != NULL);
 
     osalSysLock();
-    osalDbgAssert((endpoint->state == ENDPOINT_STOP) || (endpoint->state == ENDPOINT_READY), "invalid state");
     endpoint->config.usbp->in_params[endpoint->config.ep - 1U] = NULL;
-    endpoint->state                                            = ENDPOINT_STOP;
 
     obqResetI(&endpoint->obqueue);
     endpoint->report_storage->reset_report(endpoint->report_storage->reports);
@@ -138,9 +132,7 @@ void usb_endpoint_out_stop(usb_endpoint_out_t *endpoint) {
     osalDbgCheck(endpoint != NULL);
 
     osalSysLock();
-    osalDbgAssert((endpoint->state == ENDPOINT_STOP) || (endpoint->state == ENDPOINT_READY), "invalid state");
-    endpoint->config.usbp->out_params[endpoint->config.ep - 1U] = NULL;
-    endpoint->state                                             = ENDPOINT_STOP;
+    osalDbgAssert((usbGetDriverStateI(endpoint->config.usbp) == USB_STOP) || (usbGetDriverStateI(endpoint->config.usbp) == USB_READY), "invalid state");
 
     ibqResetI(&endpoint->ibqueue);
     osalOsRescheduleS();
@@ -148,18 +140,12 @@ void usb_endpoint_out_stop(usb_endpoint_out_t *endpoint) {
 }
 
 void usb_endpoint_in_suspend_cb(usb_endpoint_in_t *endpoint) {
-    if (bqIsSuspendedX(&endpoint->obqueue)) {
-        return;
-    }
-
+    obqResetI(&endpoint->obqueue);
     bqSuspendI(&endpoint->obqueue);
 }
 
 void usb_endpoint_out_suspend_cb(usb_endpoint_out_t *endpoint) {
-    if (bqIsSuspendedX(&endpoint->ibqueue)) {
-        return;
-    }
-
+    ibqResetI(&endpoint->ibqueue);
     bqSuspendI(&endpoint->ibqueue);
 }
 
@@ -259,7 +245,9 @@ void usb_endpoint_out_rx_complete_cb(USBDriver *usbp, usbep_t ep) {
 bool usb_endpoint_in_send(usb_endpoint_in_t *endpoint, const uint8_t *data, size_t size, sysinterval_t timeout, bool buffered) {
     osalDbgCheck((endpoint != NULL) && (data != NULL) && (size > 0U) && (size <= endpoint->config.buffer_size));
 
-    if (endpoint->state != ENDPOINT_READY) {
+    osalSysLock();
+    if (usbGetDriverStateI(endpoint->config.usbp) != USB_ACTIVE) {
+        osalSysUnlock();
         return false;
     }
 
@@ -271,6 +259,7 @@ bool usb_endpoint_in_send(usb_endpoint_in_t *endpoint, const uint8_t *data, size
     if (endpoint->timed_out && timeout != TIME_INFINITE) {
         timeout = TIME_IMMEDIATE;
     }
+    osalSysUnlock();
 
     while (true) {
         size_t sent = obqWriteTimeout(&endpoint->obqueue, data, size, timeout);
@@ -278,7 +267,10 @@ bool usb_endpoint_in_send(usb_endpoint_in_t *endpoint, const uint8_t *data, size
         if (sent < size) {
             osalSysLock();
             endpoint->timed_out |= sent == 0;
+            bqSuspendI(&endpoint->obqueue);
             obqResetI(&endpoint->obqueue);
+            bqResumeX(&endpoint->obqueue);
+            osalOsRescheduleS();
             osalSysUnlock();
             continue;
         }
@@ -297,26 +289,29 @@ void usb_endpoint_in_flush(usb_endpoint_in_t *endpoint) {
     obqFlush(&endpoint->obqueue);
 }
 
-bool usb_endpoint_in_is_empty(usb_endpoint_in_t *endpoint) {
+bool usb_endpoint_in_is_inactive(usb_endpoint_in_t *endpoint) {
     osalDbgCheck(endpoint != NULL);
 
     osalSysLock();
-    bool empty = obqIsEmptyI(&endpoint->obqueue);
+    bool inactive = obqIsEmptyI(&endpoint->obqueue) && !usbGetTransmitStatusI(endpoint->config.usbp, endpoint->config.ep);
     osalSysUnlock();
 
-    return empty;
+    return inactive;
 }
 
 bool usb_endpoint_out_receive(usb_endpoint_out_t *endpoint, uint8_t *data, size_t size, sysinterval_t timeout) {
     osalDbgCheck((endpoint != NULL) && (data != NULL) && (size > 0U));
 
-    if (endpoint->state != ENDPOINT_READY) {
+    osalSysLock();
+    if (usbGetDriverStateI(endpoint->config.usbp) != USB_ACTIVE) {
+        osalSysUnlock();
         return false;
     }
 
     if (endpoint->timed_out && timeout != TIME_INFINITE) {
         timeout = TIME_IMMEDIATE;
     }
+    osalSysUnlock();
 
     const size_t received = ibqReadTimeout(&endpoint->ibqueue, data, size, timeout);
     endpoint->timed_out   = received == 0;

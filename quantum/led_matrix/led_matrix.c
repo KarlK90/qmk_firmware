@@ -342,9 +342,8 @@ void led_matrix_task(void) {
         case RENDERING:
             led_task_render(effect);
             if (effect) {
-                // Only run the basic indicators in the last render iteration (default there are 5 iterations)
-                if (led_effect_params.iter == LED_MATRIX_LED_PROCESS_MAX_ITERATIONS) {
-                    led_matrix_indicators();
+                if (led_task_state == FLUSHING) {
+                    led_matrix_indicators(); // ensure we only draw basic indicators once rendering is finished
                 }
                 led_matrix_indicators_advanced(&led_effect_params);
             }
@@ -360,7 +359,6 @@ void led_matrix_task(void) {
 
 void led_matrix_indicators(void) {
     led_matrix_indicators_kb();
-    led_matrix_indicators_user();
 }
 
 __attribute__((weak)) bool led_matrix_indicators_kb(void) {
@@ -386,7 +384,6 @@ void led_matrix_indicators_advanced(effect_params_t *params) {
     uint8_t max = LED_MATRIX_LED_COUNT;
 #endif
     led_matrix_indicators_advanced_kb(min, max);
-    led_matrix_indicators_advanced_user(min, max);
 }
 
 __attribute__((weak)) bool led_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {

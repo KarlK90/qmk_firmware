@@ -22,7 +22,7 @@ usb_endpoint_in_t usb_endpoints_in[USB_ENDPOINT_IN_COUNT] = {
         &usb_shared_idle_timer_elapsed,
         (REPORT_ID_COUNT + 1),
 #if defined(KEYBOARD_SHARED_EP)
-        QMK_USB_REPORT_STROAGE_ENTRY(REPORT_ID_KEYBOARD, KEYBOARD_REPORT_SIZE),
+        QMK_USB_REPORT_STROAGE_ENTRY(REPORT_ID_KEYBOARD, sizeof(report_keyboard_t)),
 #endif
 #if defined(MOUSE_SHARED_EP)
         QMK_USB_REPORT_STROAGE_ENTRY(REPORT_ID_MOUSE, sizeof(report_mouse_t)),
@@ -35,7 +35,7 @@ usb_endpoint_in_t usb_endpoints_in[USB_ENDPOINT_IN_COUNT] = {
         QMK_USB_REPORT_STROAGE_ENTRY(REPORT_ID_PROGRAMMABLE_BUTTON, sizeof(report_programmable_button_t)),
 #endif
 #if defined(NKRO_ENABLE)
-        QMK_USB_REPORT_STROAGE_ENTRY(REPORT_ID_NKRO, sizeof(struct nkro_report)),
+        QMK_USB_REPORT_STROAGE_ENTRY(REPORT_ID_NKRO, sizeof(report_nkro_t)),
 #endif
 #if defined(JOYSTICK_SHARED_EP)
         QMK_USB_REPORT_STROAGE_ENTRY(REPORT_ID_JOYSTICK, sizeof(report_joystick_t)),
@@ -49,7 +49,7 @@ usb_endpoint_in_t usb_endpoints_in[USB_ENDPOINT_IN_COUNT] = {
 // clang-format on
 
 #if !defined(KEYBOARD_SHARED_EP)
-    [USB_ENDPOINT_IN_KEYBOARD] = QMK_USB_ENDPOINT_IN(USB_EP_MODE_TYPE_INTR, KEYBOARD_EPSIZE, KEYBOARD_IN_EPNUM, KEYBOARD_IN_CAPACITY, NULL, QMK_USB_REPORT_STORAGE_DEFAULT(KEYBOARD_REPORT_SIZE)),
+    [USB_ENDPOINT_IN_KEYBOARD] = QMK_USB_ENDPOINT_IN(USB_EP_MODE_TYPE_INTR, KEYBOARD_EPSIZE, KEYBOARD_IN_EPNUM, KEYBOARD_IN_CAPACITY, NULL, QMK_USB_REPORT_STORAGE_DEFAULT(sizeof(report_keyboard_t))),
 #endif
 
 #if defined(MOUSE_ENABLE) && !defined(MOUSE_SHARED_EP)

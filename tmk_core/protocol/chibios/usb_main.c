@@ -50,8 +50,8 @@ extern usb_endpoint_in_t  usb_endpoints_in[USB_ENDPOINT_IN_COUNT];
 extern usb_endpoint_out_t usb_endpoints_out[USB_ENDPOINT_OUT_COUNT];
 
 uint8_t _Alignas(2) keyboard_protocol = 1;
+uint8_t _Alignas(2) keyboard_idle     = 0;
 uint8_t keyboard_led_state            = 0;
-uint8_t keyboard_idle_count           = 0;
 
 void send_keyboard(report_keyboard_t *report);
 
@@ -316,6 +316,8 @@ static bool usb_requests_hook_cb(USBDriver *usbp) {
                         break;
 
                     case HID_SET_IDLE:
+                        // This is kept for now to not break backwards compatibiltiy
+                        keyboard_idle = usbp->setup[3];
                         return usb_set_idle_cb(usbp);
                 }
                 break;
@@ -341,10 +343,18 @@ static bool usb_requests_hook_cb(USBDriver *usbp) {
     return false;
 }
 
+static __attribute__((unused)) void dummy_cb(USBDriver *usbp) {
+    (void)usbp;
+}
+
 static const USBConfig usbcfg = {
     usb_event_cb,          /* USB events callback */
     usb_get_descriptor_cb, /* Device GET_DESCRIPTOR request callback */
     usb_requests_hook_cb,  /* Requests hook callback */
+#if STM32_USB_USE_OTG1 == TRUE || STM32_USB_USE_OTG2 == TRUE
+    dummy_cb, /* Workaround for OTG Peripherals not servicing new interrupts
+    after resuming from suspend. */
+#endif
 };
 
 void init_usb_driver(USBDriver *usbp) {
@@ -382,15 +392,17 @@ __attribute__((weak)) void restart_usb_driver(USBDriver *usbp) {
         usb_endpoint_out_stop(&usb_endpoints_out[i]);
     }
 
-#if USB_SUSPEND_WAKEUP_DELAY > 0
-    // Some hubs, kvm switches, and monitors do
-    // weird things, with USB device state bouncing
-    // around wildly on wakeup, yielding race
-    // conditions that can corrupt the keyboard state.
-    //
-    // Pause for a while to let things settle...
-    wait_ms(USB_SUSPEND_WAKEUP_DELAY);
-#endif
+    wait_ms(50);
+
+    for (int i = 0; i < USB_ENDPOINT_IN_COUNT; i++) {
+        usb_endpoint_in_init(&usb_endpoints_in[i]);
+        usb_endpoint_in_start(&usb_endpoints_in[i]);
+    }
+
+    for (int i = 0; i < USB_ENDPOINT_OUT_COUNT; i++) {
+        usb_endpoint_out_init(&usb_endpoints_out[i]);
+        usb_endpoint_out_start(&usb_endpoints_out[i]);
+    }
 
     for (int i = 0; i < USB_ENDPOINT_IN_COUNT; i++) {
         usb_endpoint_in_init(&usb_endpoints_in[i]);
@@ -475,15 +487,14 @@ void send_keyboard(report_keyboard_t *report) {
     if (!keyboard_protocol) {
         send_report(USB_ENDPOINT_IN_KEYBOARD, &report->mods, 8);
     } else {
-#ifdef NKRO_ENABLE
-        if (keymap_config.nkro) {
-            send_report(USB_ENDPOINT_IN_SHARED, report, sizeof(struct nkro_report));
-        } else
-#endif
-        {
-            send_report(USB_ENDPOINT_IN_KEYBOARD, report, KEYBOARD_REPORT_SIZE);
-        }
+        send_report(USB_ENDPOINT_IN_KEYBOARD, report, KEYBOARD_REPORT_SIZE);
     }
+}
+
+void send_nkro(report_nkro_t *report) {
+#ifdef NKRO_ENABLE
+    send_report(USB_ENDPOINT_IN_SHARED, report, sizeof(report_nkro_t));
+#endif
 }
 
 /* ---------------------------------------------------------

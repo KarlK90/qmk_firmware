@@ -40,6 +40,8 @@ void usb_reset_report(usb_fs_report_t **reports) {
     }
 
     memset(&(*reports)->data, 0, (*reports)->length);
+    (*reports)->idle_rate   = 0;
+    (*reports)->last_report = 0;
 }
 
 void usb_shared_set_report(usb_fs_report_t **reports, const uint8_t *data, size_t length) {
@@ -69,6 +71,8 @@ void usb_shared_reset_report(usb_fs_report_t **reports) {
             continue;
         }
         memset(&reports[i]->data, 0, reports[i]->length);
+        reports[i]->idle_rate   = 0;
+        reports[i]->last_report = 0;
     }
 }
 
@@ -204,7 +208,7 @@ void usb_idle_task(void) {
                 non_zero_idle_rate_found |= report_storage->get_idle(report_storage->reports, report_id) != 0;
                 osalSysUnlock();
 
-                if (report_storage->idle_timer_elasped(report_storage->reports, report_id) && usb_endpoint_in_is_empty(&usb_endpoints_in[ep])) {
+                if (usb_endpoint_in_is_inactive(&usb_endpoints_in[ep]) && report_storage->idle_timer_elasped(report_storage->reports, report_id)) {
                     osalSysLock();
                     report_storage->get_report(report_storage->reports, report_id, &report);
                     osalSysUnlock();
@@ -219,7 +223,7 @@ void usb_idle_task(void) {
         non_zero_idle_rate_found |= report_storage->get_idle(report_storage->reports, 0) != 0;
         osalSysUnlock();
 
-        if (report_storage->idle_timer_elasped(report_storage->reports, 0) && usb_endpoint_in_is_empty(&usb_endpoints_in[ep])) {
+        if (usb_endpoint_in_is_inactive(&usb_endpoints_in[ep]) && report_storage->idle_timer_elasped(report_storage->reports, 0)) {
             osalSysLock();
             report_storage->get_report(report_storage->reports, 0, &report);
             osalSysUnlock();

@@ -130,15 +130,6 @@
 
 #endif
 
-/**
- * @brief Driver state machine possible states.
- */
-typedef enum {
-    ENDPOINT_UNINIT = 0, /**< Not initialized.                   */
-    ENDPOINT_STOP   = 1, /**< Stopped.                           */
-    ENDPOINT_READY  = 2  /**< Ready.                             */
-} usb_endpoint_state_t;
-
 typedef struct {
     /**
      * @brief   USB driver to use.
@@ -175,7 +166,6 @@ typedef struct {
     bool                is_shared;
 #endif
     usb_endpoint_config_t config;
-    usb_endpoint_state_t  state;
     usbreqhandler_t       usb_requests_cb;
     bool                  timed_out;
     usb_report_storage_t *report_storage;
@@ -186,7 +176,6 @@ typedef struct {
     USBEndpointConfig     ep_config;
     USBOutEndpointState   ep_out_state;
     usb_endpoint_config_t config;
-    usb_endpoint_state_t  state;
     bool                  timed_out;
 } usb_endpoint_out_t;
 
@@ -200,7 +189,7 @@ void usb_endpoint_in_stop(usb_endpoint_in_t *endpoint);
 
 bool usb_endpoint_in_send(usb_endpoint_in_t *endpoint, const uint8_t *data, size_t size, sysinterval_t timeout, bool buffered);
 void usb_endpoint_in_flush(usb_endpoint_in_t *endpoint);
-bool usb_endpoint_in_is_empty(usb_endpoint_in_t *endpoint);
+bool usb_endpoint_in_is_inactive(usb_endpoint_in_t *endpoint);
 
 void usb_endpoint_in_suspend_cb(usb_endpoint_in_t *endpoint);
 void usb_endpoint_in_wakeup_cb(usb_endpoint_in_t *endpoint);
