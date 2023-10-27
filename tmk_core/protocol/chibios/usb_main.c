@@ -26,6 +26,10 @@
 #    include "led.h"
 #endif
 #include "wait.h"
+#include "usb_device_state.h"
+#include "usb_descriptor.h"
+#include "usb_driver.h"
+#include "usb_types.h"
 
 #ifdef NKRO_ENABLE
 #    include "keycode_config.h"
@@ -68,13 +72,13 @@ bool virtser_usb_request_cb(USBDriver *usbp);
  * ---------------------------------------------------------
  */
 
-/* HID specific constants */
-#define HID_GET_REPORT 0x01
-#define HID_GET_IDLE 0x02
-#define HID_GET_PROTOCOL 0x03
-#define HID_SET_REPORT 0x09
-#define HID_SET_IDLE 0x0A
-#define HID_SET_PROTOCOL 0x0B
+/* USB Low Level driver specific endpoint fields */
+#if !defined(usb_lld_endpoint_fields)
+#    define usb_lld_endpoint_fields   \
+        2,        /* IN multiplier */ \
+            NULL, /* SETUP buffer (not a SETUP endpoint) */
+#endif
+
 
 /*
  * Handles the GET_DESCRIPTOR callback
@@ -82,16 +86,17 @@ bool virtser_usb_request_cb(USBDriver *usbp);
  * Returns the proper descriptor
  */
 static const USBDescriptor *usb_get_descriptor_cb(USBDriver *usbp, uint8_t dtype, uint8_t dindex, uint16_t wIndex) {
-    (void)usbp;
-    static USBDescriptor desc;
-    uint16_t             wValue  = ((uint16_t)dtype << 8) | dindex;
-    uint16_t             wLength = ((uint16_t)usbp->setup[7] << 8) | usbp->setup[6];
-    desc.ud_string               = NULL;
-    desc.ud_size                 = get_usb_descriptor(wValue, wIndex, wLength, (const void **const)&desc.ud_string);
-    if (desc.ud_string == NULL)
+    usb_control_request_t *setup = (usb_control_request_t *)usbp->setup;
+
+    static USBDescriptor descriptor;
+    descriptor.ud_string = NULL;
+    descriptor.ud_size   = get_usb_descriptor(setup->wValue.word, setup->wIndex, setup->wLength, (const void **const) & descriptor.ud_string);
+
+    if (descriptor.ud_string == NULL) {
         return NULL;
-    else
-        return &desc;
+    }
+
+    return &descriptor;
 }
 
 /* ---------------------------------------------------------
@@ -177,6 +182,7 @@ void usb_event_queue_task(void) {
     }
 }
 
+/* Handles the USB driver global events. */
 static void usb_event_cb(USBDriver *usbp, usbevent_t event) {
     switch (event) {
         case USB_EVENT_ADDRESS:
@@ -229,16 +235,6 @@ static void usb_event_cb(USBDriver *usbp, usbevent_t event) {
     }
 }
 
-/* Function used locally in os/hal/src/usb.c for getting descriptors
- * need it here for HID descriptor */
-static uint16_t get_hword(uint8_t *p) {
-    uint16_t hw;
-
-    hw = (uint16_t)*p++;
-    hw |= (uint16_t)*p << 8U;
-    return hw;
-}
-
 /*
  * Appendix G: HID Request Support Requirements
  *
@@ -255,7 +251,9 @@ static uint16_t get_hword(uint8_t *p) {
 static uint8_t _Alignas(4) set_report_buf[2];
 
 static void set_led_transfer_cb(USBDriver *usbp) {
-    if (usbp->setup[6] == 2) { /* LSB(wLength) */
+    usb_control_request_t *setup = (usb_control_request_t *)usbp->setup;
+
+    if (setup->wLength == 2) {
         uint8_t report_id = set_report_buf[0];
         if ((report_id == REPORT_ID_KEYBOARD) || (report_id == REPORT_ID_NKRO)) {
             keyboard_led_state = set_report_buf[1];
@@ -266,70 +264,61 @@ static void set_led_transfer_cb(USBDriver *usbp) {
 }
 
 static bool usb_requests_hook_cb(USBDriver *usbp) {
-    const USBDescriptor *dp;
-
-    /* usbp->setup fields:
-     *  0:   bmRequestType (bitmask)
-     *  1:   bRequest
-     *  2,3: (LSB,MSB) wValue
-     *  4,5: (LSB,MSB) wIndex
-     *  6,7: (LSB,MSB) wLength (number of bytes to transfer if there is a data phase) */
+    usb_control_request_t *setup = (usb_control_request_t *)usbp->setup;
 
     /* Handle HID class specific requests */
-    if (((usbp->setup[0] & USB_RTYPE_TYPE_MASK) == USB_RTYPE_TYPE_CLASS) && ((usbp->setup[0] & USB_RTYPE_RECIPIENT_MASK) == USB_RTYPE_RECIPIENT_INTERFACE)) {
-        switch (usbp->setup[0] & USB_RTYPE_DIR_MASK) {
+    if ((setup->bmRequestType & (USB_RTYPE_TYPE_MASK | USB_RTYPE_RECIPIENT_MASK)) == (USB_RTYPE_TYPE_CLASS | USB_RTYPE_RECIPIENT_INTERFACE)) {
+        switch (setup->bmRequestType & USB_RTYPE_DIR_MASK) {
             case USB_RTYPE_DIR_DEV2HOST:
-                switch (usbp->setup[1]) { /* bRequest */
-                    case HID_GET_REPORT:
+                switch (setup->bRequest) {
+                    case HID_REQ_GetReport:
                         return usb_get_report_cb(usbp);
-                    case HID_GET_PROTOCOL:
-                        if ((usbp->setup[4] == KEYBOARD_INTERFACE) && (usbp->setup[5] == 0)) { /* wIndex */
-                            usbSetupTransfer(usbp, &keyboard_protocol, 1, NULL);
-                            return TRUE;
+                    case HID_REQ_GetProtocol:
+                        if (setup->wIndex == KEYBOARD_INTERFACE) {
+                            usbSetupTransfer(usbp, &keyboard_protocol, sizeof(uint8_t), NULL);
+                            return true;
                         }
                         break;
 
-                    case HID_GET_IDLE:
+                    case HID_REQ_GetIdle:
                         return usb_get_idle_cb(usbp);
                 }
 
             case USB_RTYPE_DIR_HOST2DEV:
-                switch (usbp->setup[1]) { /* bRequest */
-                    case HID_SET_REPORT:
-                        switch (usbp->setup[4]) { /* LSB(wIndex) (check MSB==0?) */
+                switch (setup->bRequest) {
+                    case HID_REQ_SetReport:
+                        switch (setup->wIndex) {
                             case KEYBOARD_INTERFACE:
 #if defined(SHARED_EP_ENABLE) && !defined(KEYBOARD_SHARED_EP)
                             case SHARED_INTERFACE:
 #endif
                                 usbSetupTransfer(usbp, set_report_buf, sizeof(set_report_buf), set_led_transfer_cb);
-                                return TRUE;
-                                break;
+                                return true;
                         }
                         break;
-
-                    case HID_SET_PROTOCOL:
-                        if ((usbp->setup[4] == KEYBOARD_INTERFACE) && (usbp->setup[5] == 0)) { /* wIndex */
-                            keyboard_protocol = ((usbp->setup[2]) != 0x00);                    /* LSB(wValue) */
+                    case HID_REQ_SetProtocol:
+                        if (setup->wIndex == KEYBOARD_INTERFACE) {
+                            keyboard_protocol = setup->wValue.word;
                         }
                         usbSetupTransfer(usbp, NULL, 0, NULL);
-                        return TRUE;
-                        break;
-
-                    case HID_SET_IDLE:
-                        // This is kept for now to not break backwards compatibiltiy
-                        keyboard_idle = usbp->setup[3];
+                        return true;
+                    case HID_REQ_SetIdle:
+                        keyboard_idle = setup->wValue.hbyte;
                         return usb_set_idle_cb(usbp);
                 }
                 break;
         }
     }
 
-    /* Handle the Get_Descriptor Request for HID class (not handled by the default hook) */
-    if (((usbp->setup[0] & (USB_RTYPE_DIR_MASK | USB_RTYPE_RECIPIENT_MASK)) == (USB_RTYPE_DIR_DEV2HOST | USB_RTYPE_RECIPIENT_INTERFACE)) && (usbp->setup[1] == USB_REQ_GET_DESCRIPTOR)) {
-        dp = usbp->config->get_descriptor_cb(usbp, usbp->setup[3], usbp->setup[2], get_hword(&usbp->setup[4]));
-        if (dp == NULL) return FALSE;
-        usbSetupTransfer(usbp, (uint8_t *)dp->ud_string, dp->ud_size, NULL);
-        return TRUE;
+    /* Handle the Get_Descriptor Request for HID class, which is not handled by
+     * the ChibiOS USB driver */
+    if (((setup->bmRequestType & (USB_RTYPE_DIR_MASK | USB_RTYPE_RECIPIENT_MASK)) == (USB_RTYPE_DIR_DEV2HOST | USB_RTYPE_RECIPIENT_INTERFACE)) && (setup->bRequest == USB_REQ_GET_DESCRIPTOR)) {
+        const USBDescriptor *descriptor = usbp->config->get_descriptor_cb(usbp, setup->wValue.lbyte, setup->wValue.hbyte, setup->wIndex);
+        if (descriptor == NULL) {
+            return false;
+        }
+        usbSetupTransfer(usbp, (uint8_t *)descriptor->ud_string, descriptor->ud_size, NULL);
+        return true;
     }
 
     for (int i = 0; i < USB_ENDPOINT_IN_COUNT; i++) {
@@ -393,16 +382,6 @@ __attribute__((weak)) void restart_usb_driver(USBDriver *usbp) {
     }
 
     wait_ms(50);
-
-    for (int i = 0; i < USB_ENDPOINT_IN_COUNT; i++) {
-        usb_endpoint_in_init(&usb_endpoints_in[i]);
-        usb_endpoint_in_start(&usb_endpoints_in[i]);
-    }
-
-    for (int i = 0; i < USB_ENDPOINT_OUT_COUNT; i++) {
-        usb_endpoint_out_init(&usb_endpoints_out[i]);
-        usb_endpoint_out_start(&usb_endpoints_out[i]);
-    }
 
     for (int i = 0; i < USB_ENDPOINT_IN_COUNT; i++) {
         usb_endpoint_in_init(&usb_endpoints_in[i]);

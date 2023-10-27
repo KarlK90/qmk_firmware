@@ -122,6 +122,7 @@ void usb_endpoint_in_stop(usb_endpoint_in_t *endpoint) {
     osalSysLock();
     endpoint->config.usbp->in_params[endpoint->config.ep - 1U] = NULL;
 
+    bqSuspendI(&endpoint->obqueue);
     obqResetI(&endpoint->obqueue);
     endpoint->report_storage->reset_report(endpoint->report_storage->reports);
     osalOsRescheduleS();
@@ -134,19 +135,21 @@ void usb_endpoint_out_stop(usb_endpoint_out_t *endpoint) {
     osalSysLock();
     osalDbgAssert((usbGetDriverStateI(endpoint->config.usbp) == USB_STOP) || (usbGetDriverStateI(endpoint->config.usbp) == USB_READY), "invalid state");
 
+    bqSuspendI(&endpoint->ibqueue);
     ibqResetI(&endpoint->ibqueue);
     osalOsRescheduleS();
     osalSysUnlock();
 }
 
 void usb_endpoint_in_suspend_cb(usb_endpoint_in_t *endpoint) {
-    obqResetI(&endpoint->obqueue);
     bqSuspendI(&endpoint->obqueue);
+    obqResetI(&endpoint->obqueue);
+    endpoint->report_storage->reset_report(endpoint->report_storage->reports);
 }
 
 void usb_endpoint_out_suspend_cb(usb_endpoint_out_t *endpoint) {
-    ibqResetI(&endpoint->ibqueue);
     bqSuspendI(&endpoint->ibqueue);
+    ibqResetI(&endpoint->ibqueue);
 }
 
 void usb_endpoint_in_wakeup_cb(usb_endpoint_in_t *endpoint) {

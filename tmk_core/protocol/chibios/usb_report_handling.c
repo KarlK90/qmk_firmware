@@ -8,6 +8,7 @@
 #include "usb_report_handling.h"
 #include "usb_endpoints.h"
 #include "usb_main.h"
+#include "usb_types.h"
 #include "usb_driver.h"
 #include "report.h"
 
@@ -77,10 +78,11 @@ void usb_shared_reset_report(usb_fs_report_t **reports) {
 }
 
 bool usb_get_report_cb(USBDriver *driver) {
-    static usb_fs_report_t report;
+    usb_control_request_t *setup     = (usb_control_request_t *)driver->setup;
+    uint8_t                interface = setup->wIndex;
+    uint8_t                report_id = setup->wValue.lbyte;
 
-    uint8_t interface = driver->setup[4];
-    uint8_t report_id = driver->setup[2];
+    static usb_fs_report_t report;
 
     if (!IS_VALID_INTERFACE(interface) || !IS_VALID_REPORT_ID(report_id)) {
         return false;
@@ -235,10 +237,11 @@ void usb_idle_task(void) {
 }
 
 bool usb_get_idle_cb(USBDriver *driver) {
-    static uint8_t _Alignas(4) idle_rate;
+    usb_control_request_t *setup     = (usb_control_request_t *)driver->setup;
+    uint8_t                interface = setup->wIndex;
+    uint8_t                report_id = setup->wValue.lbyte;
 
-    uint8_t interface = driver->setup[4];
-    uint8_t report_id = driver->setup[2];
+    static uint8_t _Alignas(4) idle_rate;
 
     if (!IS_VALID_INTERFACE(interface) || !IS_VALID_REPORT_ID(report_id)) {
         return false;
@@ -264,9 +267,10 @@ bool usb_get_idle_cb(USBDriver *driver) {
 }
 
 bool usb_set_idle_cb(USBDriver *driver) {
-    uint8_t idle_rate = driver->setup[3];
-    uint8_t interface = driver->setup[4];
-    uint8_t report_id = driver->setup[2];
+    usb_control_request_t *setup     = (usb_control_request_t *)driver->setup;
+    uint8_t                interface = setup->wIndex;
+    uint8_t                report_id = setup->wValue.lbyte;
+    uint8_t                idle_rate = setup->wValue.hbyte;
 
     if (!IS_VALID_INTERFACE(interface) || !IS_VALID_REPORT_ID(report_id)) {
         return false;
