@@ -59,3 +59,14 @@ int8_t sendchar(uint8_t c);
 void console_flush_output(void);
 
 #endif /* CONSOLE_ENABLE */
+
+/* --------------
+ * Virtser header
+ * --------------
+ */
+
+#if defined(VIRTSER_ENABLE)
+
+bool virtser_usb_request_cb(USBDriver *usbp);
+
+#endif

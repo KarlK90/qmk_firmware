@@ -26,6 +26,7 @@
 #    include "led.h"
 #endif
 #include "wait.h"
+#include "usb_endpoints.h"
 #include "usb_device_state.h"
 #include "usb_descriptor.h"
 #include "usb_driver.h"
@@ -53,19 +54,13 @@ extern keymap_config_t keymap_config;
 extern usb_endpoint_in_t  usb_endpoints_in[USB_ENDPOINT_IN_COUNT];
 extern usb_endpoint_out_t usb_endpoints_out[USB_ENDPOINT_OUT_COUNT];
 
-uint8_t _Alignas(2) keyboard_protocol = 1;
 uint8_t _Alignas(2) keyboard_idle     = 0;
+uint8_t _Alignas(2) keyboard_protocol = 1;
 uint8_t keyboard_led_state            = 0;
-
-void send_keyboard(report_keyboard_t *report);
 
 static bool __attribute__((__unused__)) send_report_buffered(usb_endpoint_in_lut_t endpoint, void *report, size_t size);
 static void __attribute__((__unused__)) flush_report_buffered(usb_endpoint_in_lut_t endpoint);
 static bool __attribute__((__unused__)) receive_report(usb_endpoint_out_lut_t endpoint, void *report, size_t size);
-
-#if defined(VIRTSER_ENABLE)
-bool virtser_usb_request_cb(USBDriver *usbp);
-#endif
 
 /* ---------------------------------------------------------
  *            Descriptors and USB driver objects
@@ -78,7 +73,6 @@ bool virtser_usb_request_cb(USBDriver *usbp);
         2,        /* IN multiplier */ \
             NULL, /* SETUP buffer (not a SETUP endpoint) */
 #endif
-
 
 /*
  * Handles the GET_DESCRIPTOR callback

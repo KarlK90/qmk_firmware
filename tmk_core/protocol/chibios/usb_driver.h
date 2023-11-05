@@ -35,20 +35,19 @@
  */
 #define QMK_USB_ENDPOINT_IN(mode, ep_size, ep_num, _buffer_capacity, _usb_requests_cb, _report_storage) \
     {                                                                                                   \
-        .usb_requests_cb    = _usb_requests_cb, /**/                                                    \
-            .report_storage = _report_storage,  /**/                                                    \
-            .ep_config =                                                                                \
-                {                                                                                       \
-                    mode,                           /* EP Mode */                                       \
-                    NULL,                           /* SETUP packet notification callback */            \
-                    usb_endpoint_in_tx_complete_cb, /* IN notification callback */                      \
-                    NULL,                           /* OUT notification callback */                     \
-                    ep_size,                        /* IN maximum packet size */                        \
-                    0,                              /* OUT maximum packet size */                       \
-                    NULL,                           /* IN Endpoint state */                             \
-                    NULL,                           /* OUT endpoint state */                            \
-                    usb_lld_endpoint_fields         /* USB driver specific endpoint fields */           \
-                },                                                                                      \
+        .usb_requests_cb = _usb_requests_cb, .report_storage = _report_storage,                         \
+        .ep_config =                                                                                    \
+            {                                                                                           \
+                mode,                           /* EP Mode */                                           \
+                NULL,                           /* SETUP packet notification callback */                \
+                usb_endpoint_in_tx_complete_cb, /* IN notification callback */                          \
+                NULL,                           /* OUT notification callback */                         \
+                ep_size,                        /* IN maximum packet size */                            \
+                0,                              /* OUT maximum packet size */                           \
+                NULL,                           /* IN Endpoint state */                                 \
+                NULL,                           /* OUT endpoint state */                                \
+                usb_lld_endpoint_fields         /* USB driver specific endpoint fields */               \
+            },                                                                                          \
         .config = {                                                                                     \
             .usbp            = &USB_DRIVER,                                                             \
             .ep              = ep_num,                                                                  \
@@ -87,21 +86,19 @@
 
 #    define QMK_USB_ENDPOINT_IN_SHARED(mode, ep_size, ep_num, _buffer_capacity, _usb_requests_cb, _report_storage) \
         {                                                                                                          \
-            .usb_requests_cb    = _usb_requests_cb, /**/                                                           \
-                .is_shared      = true,             /**/                                                           \
-                .report_storage = _report_storage,  /**/                                                           \
-                .ep_config =                                                                                       \
-                    {                                                                                              \
-                        mode,                            /* EP Mode */                                             \
-                        NULL,                            /* SETUP packet notification callback */                  \
-                        usb_endpoint_in_tx_complete_cb,  /* IN notification callback */                            \
-                        usb_endpoint_out_rx_complete_cb, /* OUT notification callback */                           \
-                        ep_size,                         /* IN maximum packet size */                              \
-                        ep_size,                         /* OUT maximum packet size */                             \
-                        NULL,                            /* IN Endpoint state */                                   \
-                        NULL,                            /* OUT endpoint state */                                  \
-                        usb_lld_endpoint_fields          /* USB driver specific endpoint fields */                 \
-                    },                                                                                             \
+            .usb_requests_cb = _usb_requests_cb, .is_shared = true, .report_storage = _report_storage,             \
+            .ep_config =                                                                                           \
+                {                                                                                                  \
+                    mode,                            /* EP Mode */                                                 \
+                    NULL,                            /* SETUP packet notification callback */                      \
+                    usb_endpoint_in_tx_complete_cb,  /* IN notification callback */                                \
+                    usb_endpoint_out_rx_complete_cb, /* OUT notification callback */                               \
+                    ep_size,                         /* IN maximum packet size */                                  \
+                    ep_size,                         /* OUT maximum packet size */                                 \
+                    NULL,                            /* IN Endpoint state */                                       \
+                    NULL,                            /* OUT endpoint state */                                      \
+                    usb_lld_endpoint_fields          /* USB driver specific endpoint fields */                     \
+                },                                                                                                 \
             .config = {                                                                                            \
                 .usbp            = &USB_DRIVER,                                                                    \
                 .ep              = ep_num,                                                                         \
@@ -117,7 +114,7 @@
         {                                                                                              \
             .ep_config =                                                                               \
                 {                                                                                      \
-                    0 /* Already defined */                                                            \
+                    0 /* Already defined in the IN endpoint */                                         \
                 },                                                                                     \
             .config = {                                                                                \
                 .usbp            = &USB_DRIVER,                                                        \
