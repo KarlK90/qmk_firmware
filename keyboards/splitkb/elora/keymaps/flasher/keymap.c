@@ -346,12 +346,12 @@ void keyboard_post_init_user(void) {
     const uint8_t  eeprom_address = 0x50 << 1;
     const uint16_t i2c_timeout    = 100; // in milliseconds
 
-    if (i2c_transmit(eeprom_address, update_blob, ARRAY_SIZE(update_blob), i2c_timeout) == I2C_STATUS_SUCCESS) {
+    if (i2c_writeReg(eeprom_address, 0, update_blob, ARRAY_SIZE(update_blob), i2c_timeout) == I2C_STATUS_SUCCESS) {
         dprintln("successfully flashed new firmware to eeprom");
         dprintln("verifying new firmware");
-        if (i2c_receive(eeprom_address, verify_blob, ARRAY_SIZE(verify_blob), i2c_timeout) == I2C_STATUS_SUCCESS) {
+        if (i2c_readReg(eeprom_address, 0, verify_blob, ARRAY_SIZE(verify_blob), i2c_timeout) == I2C_STATUS_SUCCESS) {
             dprintln("successfully read new firmware from eeprom");
-            if (memcmp(update_blob, verify_blob, ARRAY_SIZE(update_blob)) == 0) {
+            if (memcmp(update_blob, verify_blob, ARRAY_SIZE(verify_blob)) == 0) {
                 dprintln("successfully verified new firmware");
                 dprintln("jumping to bootloader, please flash your firmware again for regular use");
                 bootloader_jump();
