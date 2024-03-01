@@ -16,6 +16,7 @@
 
 #include QMK_KEYBOARD_H
 #include "i2c_master.h"
+#include "eeprom_i2c.h"
 
 enum layers {
     _QWERTY = 0,
@@ -335,32 +336,131 @@ DELETE THIS LINE TO UNCOMMENT (2/2) */
 
 // clang-format on
 
+static inline void fill_target_address(uint8_t *buffer, const void *addr) {
+    uintptr_t p = (uintptr_t)addr;
+    for (int i = 0; i < EXTERNAL_EEPROM_ADDRESS_SIZE; ++i) {
+        buffer[EXTERNAL_EEPROM_ADDRESS_SIZE - 1 - i] = p & 0xFF;
+        p >>= 8;
+    }
+}
+
+void i2c_eeprom_driver_init(void) {
+    i2c_init();
+#if defined(EXTERNAL_EEPROM_WP_PIN)
+    /* We are setting the WP pin to high in a way that requires at least two bit-flips to change back to 0 */
+    writePin(EXTERNAL_EEPROM_WP_PIN, 1);
+    setPinInputHigh(EXTERNAL_EEPROM_WP_PIN);
+#endif
+}
+
+bool i2c_eeprom_read_block(void *buf, const void *addr, size_t len) {
+    uint8_t complete_packet[EXTERNAL_EEPROM_ADDRESS_SIZE];
+    fill_target_address(complete_packet, addr);
+
+    if (i2c_transmit(EXTERNAL_EEPROM_I2C_ADDRESS((uintptr_t)addr), complete_packet, EXTERNAL_EEPROM_ADDRESS_SIZE, 100) != I2C_STATUS_SUCCESS) {
+        return false;
+    }
+    if (i2c_receive(EXTERNAL_EEPROM_I2C_ADDRESS((uintptr_t)addr), buf, len, 100) != I2C_STATUS_SUCCESS) {
+        return false;
+    }
+
+#if defined(CONSOLE_ENABLE) && defined(DEBUG_EEPROM_OUTPUT)
+    dprintf("[EEPROM R] 0x%04X: ", ((int)addr));
+    for (size_t i = 0; i < len; ++i) {
+        dprintf(" %02X", (int)(((uint8_t *)buf)[i]));
+    }
+    dprintf("\n");
+#endif // DEBUG_EEPROM_OUTPUT
+    return true;
+}
+
+bool i2c_eeprom_write_block(const void *buf, void *addr, size_t len) {
+    uint8_t   complete_packet[EXTERNAL_EEPROM_ADDRESS_SIZE + EXTERNAL_EEPROM_PAGE_SIZE];
+    uint8_t  *read_buf    = (uint8_t *)buf;
+    uintptr_t target_addr = (uintptr_t)addr;
+
+#if defined(EXTERNAL_EEPROM_WP_PIN)
+    setPinOutput(EXTERNAL_EEPROM_WP_PIN);
+    writePin(EXTERNAL_EEPROM_WP_PIN, 0);
+#endif
+
+    while (len > 0) {
+        uintptr_t page_offset  = target_addr % EXTERNAL_EEPROM_PAGE_SIZE;
+        int       write_length = EXTERNAL_EEPROM_PAGE_SIZE - page_offset;
+        if (write_length > len) {
+            write_length = len;
+        }
+
+        fill_target_address(complete_packet, (const void *)target_addr);
+        for (uint8_t i = 0; i < write_length; i++) {
+            complete_packet[EXTERNAL_EEPROM_ADDRESS_SIZE + i] = read_buf[i];
+        }
+
+#if defined(CONSOLE_ENABLE) && defined(DEBUG_EEPROM_OUTPUT)
+        dprintf("[EEPROM W] 0x%04X: ", ((int)target_addr));
+        for (uint8_t i = 0; i < write_length; i++) {
+            dprintf(" %02X", (int)(read_buf[i]));
+        }
+        dprintf("\n");
+#endif // DEBUG_EEPROM_OUTPUT
+
+        if (i2c_transmit(EXTERNAL_EEPROM_I2C_ADDRESS((uintptr_t)addr), complete_packet, EXTERNAL_EEPROM_ADDRESS_SIZE + write_length, 100) != I2C_STATUS_SUCCESS) {
+            return false;
+        }
+
+        wait_ms(EXTERNAL_EEPROM_WRITE_TIME);
+
+        read_buf += write_length;
+        target_addr += write_length;
+        len -= write_length;
+    }
+
+#if defined(EXTERNAL_EEPROM_WP_PIN)
+    /* We are setting the WP pin to high in a way that requires at least two bit-flips to change back to 0 */
+    writePin(EXTERNAL_EEPROM_WP_PIN, 1);
+    setPinInputHigh(EXTERNAL_EEPROM_WP_PIN);
+#endif
+
+    return true;
+}
+
 static const uint8_t update_blob[] = {0x4d, 0x59, 0x52, 0x1, 0x0, 0x0, 0x7b, 0x1b, 0x81, 0xb2, 0x5a, 0x0, 0x1, 0x5, 0x1, 0x0, 0x2, 0x0, 0x0, 0x2, 0xb, 0x73, 0x70, 0x6c, 0x69, 0x74, 0x6b, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x3, 0x16, 0x4d, 0x79, 0x72, 0x69, 0x61, 0x64, 0x20, 0x4a, 0x6f, 0x79, 0x73, 0x74, 0x69, 0x63, 0x6b, 0x20, 0x4d, 0x6f, 0x64, 0x75, 0x6c, 0x65, 0x4, 0x23, 0x68, 0x74, 0x74, 0x70, 0x73, 0x3a, 0x2f, 0x2f, 0x73, 0x70, 0x6c, 0x69, 0x74, 0x6b, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6d, 0x79, 0x72, 0x69, 0x61, 0x64, 0x2d, 0x6a, 0x6f, 0x79, 0x73, 0x74, 0x69, 0x63, 0x6b, 0x12, 0x3, 0x4a, 0x48, 0x0, 0x10, 0x2, 0x20, 0x6};
 static uint8_t       verify_blob[ARRAY_SIZE(update_blob)];
 
 void keyboard_post_init_user(void) {
     debug_enable = true;
+    i2c_eeprom_driver_init();
 
-    i2c_init();
-
-    const uint8_t  eeprom_address = 0x50 << 1;
-    const uint16_t i2c_timeout    = 100; // in milliseconds
-
-    if (i2c_writeReg(eeprom_address, 0, update_blob, ARRAY_SIZE(update_blob), i2c_timeout) == I2C_STATUS_SUCCESS) {
-        dprintln("successfully flashed new firmware to eeprom");
-        dprintln("verifying new firmware");
-        if (i2c_readReg(eeprom_address, 0, verify_blob, ARRAY_SIZE(verify_blob), i2c_timeout) == I2C_STATUS_SUCCESS) {
-            dprintln("successfully read new firmware from eeprom");
-            if (memcmp(update_blob, verify_blob, ARRAY_SIZE(verify_blob)) == 0) {
-                dprintln("successfully verified new firmware");
-                dprintln("jumping to bootloader, please flash your firmware again for regular use");
-                bootloader_jump();
-            }
-        } else {
-            dprintln("error reading new firmware from eeprom");
-        }
+    if (!i2c_eeprom_write_block((const void *)update_blob, (uint8_t *)0, ARRAY_SIZE(update_blob))) {
+        dprintln("error flashing new firmware to eeprom");
+        goto error;
     }
 
+    dprintln("successfully flashed new firmware to eeprom");
+    dprintln("verifying new firmware");
+
+    if (!i2c_eeprom_read_block((void *)verify_blob, (const uint8_t *)0, ARRAY_SIZE(verify_blob))) {
+        dprintln("error reading new firmware from eeprom");
+        goto error;
+    }
+
+    if (memcmp(update_blob, verify_blob, ARRAY_SIZE(verify_blob)) != 0) {
+        dprintln("error verifying new firmware:");
+
+        for (size_t i = 0; i < ARRAY_SIZE(verify_blob); i++) {
+            if (update_blob[i] != verify_blob[i]) {
+                dprintf("mismatch at byte %d: expected 0x%02X, got 0x%02X\n", (int)i, update_blob[i], verify_blob[i]);
+            }
+        }
+
+        goto error;
+    }
+
+    dprintln("successfully verified new firmware");
+    dprintln("jumping to bootloader, please flash your firmware again for regular use");
+    bootloader_jump();
+
+error:
     while (true) {
         dprintln("error flashing new firmware to eeprom, please consult splitkb.com for help");
         wait_ms(1000);

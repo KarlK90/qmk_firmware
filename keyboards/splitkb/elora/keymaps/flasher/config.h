@@ -21,3 +21,12 @@
 
 // Debounce reduces chatter (unintended double-presses) - set 0 if debouncing is not needed
 #define DEBOUNCE 5
+
+#define DEBUG_EEPROM_OUTPUT
+
+// https://datasheet.lcsc.com/lcsc/2109141830_Zetta-ZD24C08A-STGMT_C2896640.pdf
+#define EXTERNAL_EEPROM_PAGE_SIZE 16
+#define EXTERNAL_EEPROM_BYTE_COUNT 2048
+#define EXTERNAL_EEPROM_I2C_BASE_ADDRESS (0x50 << 1)
+#define EXTERNAL_EEPROM_ADDRESS_SIZE 2
+#define EXTERNAL_EEPROM_WRITE_TIME 5
