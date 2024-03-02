@@ -35,3 +35,4 @@ EXTRAKEY_ENABLE = yes      # Audio and system control
 # N-key rollover instead of 6-key rollover
 NKRO_ENABLE = yes          # Enable N-Key Rollover
 CONSOLE_ENABLE = yes       # Console for debug
+EEPROM_DRIVER = transient
