@@ -124,7 +124,9 @@ void usb_endpoint_in_stop(usb_endpoint_in_t *endpoint) {
 
     bqSuspendI(&endpoint->obqueue);
     obqResetI(&endpoint->obqueue);
-    endpoint->report_storage->reset_report(endpoint->report_storage->reports);
+    if (endpoint->report_storage != NULL) {
+        endpoint->report_storage->reset_report(endpoint->report_storage->reports);
+    }
     osalOsRescheduleS();
     osalSysUnlock();
 }
@@ -144,7 +146,10 @@ void usb_endpoint_out_stop(usb_endpoint_out_t *endpoint) {
 void usb_endpoint_in_suspend_cb(usb_endpoint_in_t *endpoint) {
     bqSuspendI(&endpoint->obqueue);
     obqResetI(&endpoint->obqueue);
-    endpoint->report_storage->reset_report(endpoint->report_storage->reports);
+
+    if (endpoint->report_storage != NULL) {
+        endpoint->report_storage->reset_report(endpoint->report_storage->reports);
+    }
 }
 
 void usb_endpoint_out_suspend_cb(usb_endpoint_out_t *endpoint) {
@@ -286,10 +291,23 @@ bool usb_endpoint_in_send(usb_endpoint_in_t *endpoint, const uint8_t *data, size
     }
 }
 
-void usb_endpoint_in_flush(usb_endpoint_in_t *endpoint) {
+void usb_endpoint_in_flush(usb_endpoint_in_t *endpoint, bool padded) {
     osalDbgCheck(endpoint != NULL);
 
-    obqFlush(&endpoint->obqueue);
+    output_buffers_queue_t *obqp = &endpoint->obqueue;
+
+    if (padded && obqp->ptr != NULL) {
+        ptrdiff_t bytes_left = (size_t)obqp->top - (size_t)obqp->ptr;
+        while (bytes_left > 0) {
+            // Putting bytes into a buffer that has space left should never
+            // fail and be instant, therefore we don't check the return value
+            // for errors here.
+            obqPutTimeout(obqp, 0, TIME_IMMEDIATE);
+            bytes_left--;
+        }
+    }
+
+    obqFlush(obqp);
 }
 
 bool usb_endpoint_in_is_inactive(usb_endpoint_in_t *endpoint) {

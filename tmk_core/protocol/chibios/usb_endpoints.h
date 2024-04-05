@@ -124,9 +124,6 @@ typedef enum {
 usb_endpoint_in_lut_t usb_endpoint_interface_lut[TOTAL_INTERFACES];
 
 typedef enum {
-#if defined(CONSOLE_ENABLE)
-    USB_ENDPOINT_OUT_CONSOLE,
-#endif
 #if defined(RAW_ENABLE)
     USB_ENDPOINT_OUT_RAW,
 #endif

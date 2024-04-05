@@ -59,7 +59,7 @@ uint8_t _Alignas(2) keyboard_protocol = 1;
 uint8_t keyboard_led_state            = 0;
 
 static bool __attribute__((__unused__)) send_report_buffered(usb_endpoint_in_lut_t endpoint, void *report, size_t size);
-static void __attribute__((__unused__)) flush_report_buffered(usb_endpoint_in_lut_t endpoint);
+static void __attribute__((__unused__)) flush_report_buffered(usb_endpoint_in_lut_t endpoint, bool padded);
 static bool __attribute__((__unused__)) receive_report(usb_endpoint_out_lut_t endpoint, void *report, size_t size);
 
 /* ---------------------------------------------------------
@@ -432,14 +432,15 @@ static bool send_report_buffered(usb_endpoint_in_lut_t endpoint, void *report, s
     return usb_endpoint_in_send(&usb_endpoints_in[endpoint], (uint8_t *)report, size, TIME_MS2I(100), true);
 }
 
-/**
- * @brief Flush all buffered reports which were enqueued with a call to
- * `send_report_buffered` that haven't been send.
+/** @brief Flush all buffered reports which were enqueued with a call to
+ * `send_report_buffered` that haven't been send. If necessary the buffered
+ * report can be padded with zeros up to the endpoints maximum size.
  *
  * @param endpoint USB IN endpoint to flush the reports from
+ * @param padded Pad the buffered report with zeros up to the endpoints maximum size
  */
-static void flush_report_buffered(usb_endpoint_in_lut_t endpoint) {
-    usb_endpoint_in_flush(&usb_endpoints_in[endpoint]);
+static void flush_report_buffered(usb_endpoint_in_lut_t endpoint, bool padded) {
+    usb_endpoint_in_flush(&usb_endpoints_in[endpoint], padded);
 }
 
 /**
@@ -521,18 +522,8 @@ int8_t sendchar(uint8_t c) {
     return (int8_t)send_report_buffered(USB_ENDPOINT_IN_CONSOLE, &c, sizeof(uint8_t));
 }
 
-__attribute__((weak)) void console_receive(uint8_t *data, uint8_t length) {
-    (void)data;
-    (void)length;
-}
-
 void console_task(void) {
-    uint8_t buffer[CONSOLE_EPSIZE];
-    while (receive_report(USB_ENDPOINT_OUT_CONSOLE, buffer, sizeof(buffer))) {
-        console_receive(buffer, sizeof(buffer));
-    }
-
-    flush_report_buffered(USB_ENDPOINT_IN_CONSOLE);
+    flush_report_buffered(USB_ENDPOINT_IN_CONSOLE, true);
 }
 
 #endif /* CONSOLE_ENABLE */
@@ -570,15 +561,6 @@ bool recv_midi_packet(MIDI_EventPacket_t *const event) {
     return receive_report(USB_ENDPOINT_OUT_MIDI, (uint8_t *)event, sizeof(MIDI_EventPacket_t));
 }
 
-void midi_ep_task(void) {
-    uint8_t buffer[MIDI_STREAM_EPSIZE];
-    while (receive_report(USB_ENDPOINT_OUT_MIDI, buffer, sizeof(buffer))) {
-        MIDI_EventPacket_t event;
-        // TODO: this seems totally wrong? The midi task will never see any
-        // packets if we consume them here
-        recv_midi_packet(&event);
-    }
-}
 #endif
 
 #ifdef VIRTSER_ENABLE
@@ -630,7 +612,7 @@ void virtser_task(void) {
         }
     }
 
-    flush_report_buffered(USB_ENDPOINT_IN_CDC_DATA);
+    flush_report_buffered(USB_ENDPOINT_IN_CDC_DATA, false);
 }
 
 #endif
