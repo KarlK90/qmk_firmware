@@ -133,7 +133,7 @@ void action_exec(keyevent_t event) {
     if (IS_EVENT(record.event)) {
         ac_dprintf("processed: ");
         debug_record(record);
-        dprintln();
+        ac_dprintf();
     }
 #endif
 }
@@ -412,7 +412,7 @@ static bool bilateral_combinations_left(keypos_t key) {
 }
 
 static void bilateral_combinations_chord_add(keypos_t key, uint8_t mods, uint8_t code) {
-    dprintf("%s\n", __FUNCTION__);
+    ac_dprintf("%s\n", __FUNCTION__);
     if (bilateral_combinations.chord_size < BILATERAL_COMBINATIONS_LIMIT_CHORD_TO_N_KEYS) {
         bilateral_combinations.chord_keys[bilateral_combinations.chord_size] = key;
         bilateral_combinations.chord_taps[bilateral_combinations.chord_size] = code;
@@ -448,20 +448,20 @@ static bool bilateral_combinations_chord_contains_key(uint16_t keycode) {
 }
 
 static void bilateral_combinations_apply_chord_mods(void) {
-    dprint("BILATERAL_COMBINATIONS: apply_chord_mods\n");
+    ac_dprintf("BILATERAL_COMBINATIONS: apply_chord_mods\n");
     if (!bilateral_combinations.flushed) {
         register_mods(bilateral_combinations.chord_mods);
     }
 }
 
 static void bilateral_combinations_flush_chord_mods(void) {
-    dprint("BILATERAL_COMBINATIONS: flush_chord_mods\n");
+    ac_dprintf("BILATERAL_COMBINATIONS: flush_chord_mods\n");
     bilateral_combinations_apply_chord_mods();
     bilateral_combinations.flushed = true;
 }
 
 static void bilateral_combinations_flush_chord_taps(void) {
-    dprint("BILATERAL_COMBINATIONS: flush_chord_taps\n");
+    ac_dprintf("BILATERAL_COMBINATIONS: flush_chord_taps\n");
     if (!bilateral_combinations.flushed) {
         bilateral_combinations.flushed = true;
 
@@ -476,7 +476,7 @@ static void bilateral_combinations_flush_chord_taps(void) {
 }
 
 static uint32_t bilateral_combinations_defermods_callback(uint32_t trigger_time, void *cb_arg) {
-    dprint("BILATERAL_COMBINATIONS: defermods\n");
+    ac_dprintf("BILATERAL_COMBINATIONS: defermods\n");
     if (bilateral_combinations.active) {
         bilateral_combinations_apply_chord_mods();
         bilateral_combinations.defermods = INVALID_DEFERRED_TOKEN;
@@ -493,7 +493,7 @@ static void bilateral_combinations_defermods_cancel(void) {
 
 static void bilateral_combinations_defermods_schedule(uint8_t mods) {
     if (!(mods & BILATERAL_COMBINATIONS_DELAY_MODS_THAT_MATCH)) {
-        dprintln("registered mods");
+        ac_dprintf("registered mods");
         register_mods(mods);
         return;
     }
@@ -506,11 +506,11 @@ static void bilateral_combinations_defermods_schedule(uint8_t mods) {
 }
 
 static void bilateral_combinations_hold(action_t action, keyevent_t event, uint8_t mods) {
-    dprint("BILATERAL_COMBINATIONS: hold\n");
+    ac_dprintf("BILATERAL_COMBINATIONS: hold\n");
     if (!bilateral_combinations.active) {
 #    if BILATERAL_COMBINATIONS_TYPING_STREAK_TIMEOUT
         if (TIMER_DIFF_16(event.time, bilateral_combinations.time) < BILATERAL_COMBINATIONS_TYPING_STREAK_TIMEOUT && (mods & BILATERAL_COMBINATIONS_TYPING_STREAK_MODMASK)) {
-            dprintf("bl: switch to tap");
+            ac_dprintf("bl: switch to tap");
             tap_code(action.layer_tap.code);
             return; /* don't activate: we're in the middle of a typing streak! */
         }
@@ -536,7 +536,7 @@ static void bilateral_combinations_hold(action_t action, keyevent_t event, uint8
 }
 
 static void bilateral_combinations_release(action_t action, keyevent_t event, uint8_t mods) {
-    dprint("BILATERAL_COMBINATIONS: release\n");
+    ac_dprintf("BILATERAL_COMBINATIONS: release\n");
     if (bilateral_combinations.active) {
         /* original key: clear out bilateral combinations */
         if (KEYEQ(event.key, bilateral_combinations.key)) {
@@ -555,10 +555,10 @@ static void bilateral_combinations_release(action_t action, keyevent_t event, ui
 __attribute__((weak)) bool get_bilateral_combinations(uint16_t keycode, keyevent_t event) {
     switch (keycode) {
         case LSFT_T(KC_SPC):
-            dprintln("fire!");
+            ac_dprintf("fire!");
             return true;
         case RSFT_T(KC_SPC):
-            dprintln("fire!");
+            ac_dprintf("fire!");
             return true;
         default:
             return false;
@@ -566,12 +566,12 @@ __attribute__((weak)) bool get_bilateral_combinations(uint16_t keycode, keyevent
 }
 
 static void bilateral_combinations_tap(keyevent_t event) {
-    dprint("BILATERAL_COMBINATIONS: tap\n");
+    ac_dprintf("BILATERAL_COMBINATIONS: tap\n");
     if (bilateral_combinations.active) {
         uint16_t threshold = 0;
 
         if (bilateral_combinations_chord_contains_key(LSFT_T(KC_SPC)) || bilateral_combinations_chord_contains_key(RSFT_T(KC_SPC))) {
-            dprintln("found MOFO!");
+            ac_dprintf("found MOFO!");
             bilateral_combinations_flush_chord_mods();
             return; /* skip flush_chord_taps() */
         } else if (bilateral_combinations_left(event.key) == bilateral_combinations.left) {
@@ -579,7 +579,7 @@ static void bilateral_combinations_tap(keyevent_t event) {
         } else {
             threshold += BILATERAL_COMBINATIONS_ALLOW_CROSSOVER_AFTER;
         }
-        dprintf("threshold: %d", threshold);
+        ac_dprintf("threshold: %d", threshold);
         if (threshold > 0) {
             if ((bilateral_combinations.chord_mods & BILATERAL_COMBINATIONS_DELAY_MODS_THAT_MATCH) && bilateral_combinations.chord_mods == bilateral_combinations.mods) {
                 threshold = MAX(threshold, BILATERAL_COMBINATIONS_DELAY_MATCHED_MODS_BY);
