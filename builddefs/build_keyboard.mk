@@ -212,7 +212,12 @@ $(INTERMEDIATE_OUTPUT)/src/config.h: $(KEYMAP_JSON)
 	$(eval CMD=$(QMK_BIN) generate-config-h --quiet --output $(KEYMAP_H) $(KEYMAP_JSON))
 	@$(BUILD_CMD)
 
-generated-files: $(INTERMEDIATE_OUTPUT)/src/config.h $(INTERMEDIATE_OUTPUT)/src/keymap.c
+$(INTERMEDIATE_OUTPUT)/src/keymap.h: $(KEYMAP_JSON)
+	@$(SILENT) || printf "$(MSG_GENERATING) $@" | $(AWK_CMD)
+	$(eval CMD=$(QMK_BIN) generate-keymap-h --quiet --output $(INTERMEDIATE_OUTPUT)/src/keymap.h $(KEYMAP_JSON))
+	@$(BUILD_CMD)
+
+generated-files: $(INTERMEDIATE_OUTPUT)/src/config.h $(INTERMEDIATE_OUTPUT)/src/keymap.c $(INTERMEDIATE_OUTPUT)/src/keymap.h
 
 endif
 
@@ -521,22 +526,14 @@ ifeq ($(strip $(KEEP_INTERMEDIATES)), yes)
     OPT_DEFS += -save-temps=obj
 endif
 
-# TODO: remove this bodge?
-PROJECT_DEFS := $(OPT_DEFS)
-PROJECT_INC := $(VPATH) $(EXTRAINCDIRS) $(KEYBOARD_PATHS)
-PROJECT_CONFIG := $(CONFIG_H)
-
-CONFIG_H += $(POST_CONFIG_H)
-ALL_CONFIGS := $(PROJECT_CONFIG) $(CONFIG_H)
-
 OUTPUTS := $(INTERMEDIATE_OUTPUT)
 $(INTERMEDIATE_OUTPUT)_SRC := $(SRC) $(PLATFORM_SRC)
-$(INTERMEDIATE_OUTPUT)_DEFS := $(OPT_DEFS) \
+$(INTERMEDIATE_OUTPUT)_DEFS := \
 	-DQMK_KEYBOARD=\"$(KEYBOARD)\" -DQMK_KEYBOARD_H=\"$(INTERMEDIATE_OUTPUT)/src/default_keyboard.h\" \
 	-DQMK_KEYMAP=\"$(KEYMAP)\" -DQMK_KEYMAP_H=\"$(KEYMAP).h\" -DQMK_KEYMAP_CONFIG_H=\"$(KEYMAP_PATH)/config.h\" \
-	$(PROJECT_DEFS)
-$(INTERMEDIATE_OUTPUT)_INC :=  $(VPATH) $(EXTRAINCDIRS) $(PROJECT_INC)
-$(INTERMEDIATE_OUTPUT)_CONFIG := $(CONFIG_H) $(PROJECT_CONFIG)
+	$(OPT_DEFS)
+$(INTERMEDIATE_OUTPUT)_INC :=  $(VPATH) $(EXTRAINCDIRS) $(KEYBOARD_PATHS)
+$(INTERMEDIATE_OUTPUT)_CONFIG := $(CONFIG_H) $(POST_CONFIG_H)
 
 # Default target.
 all: build check-size
