@@ -1,0 +1,32 @@
+
+{
+    "keyboard_name": "Vootington (the V4N)",
+    "processor": "STM32F072",
+    "bootloader": "stm32-dfu",
+    "manufacturer": "calvin0563",
+    "url": "TODO",
+    "maintainer": "calvin0563",
+    "usb": {
+        "vid": "0xFEED",
+        "pid": "0x6465",
+        "device_version": "0.0.1"
+    },
+    "matrix_pins": {
+        "cols": ["B4"],
+        "rows": ["B5"]
+    },
+    "features" : {
+        "console": true,
+    },
+    "community_layouts": ["ortho_1x1"],
+    "layouts": {
+        "LAYOUT_ortho_1x1": {
+            "layout": [
+                {"x": 0, "y": 0, "matrix": [0, 0]}
+            ]
+        }
+    },
+    "ws2812": {
+        "pin": "B15"
+    }
+}
