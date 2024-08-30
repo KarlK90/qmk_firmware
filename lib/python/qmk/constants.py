@@ -29,6 +29,7 @@ VUSB_PROCESSORS = 'atmega32a', 'atmega328p', 'atmega328', 'attiny85'
 # Bootloaders of the supported processors
 MCU2BOOTLOADER = {
     "RP2040": "rp2040",
+    "RP2350": "rp2350",
     "MKL26Z64": "halfkay",
     "MK20DX128": "halfkay",
     "MK20DX256": "halfkay",

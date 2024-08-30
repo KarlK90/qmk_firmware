@@ -230,6 +230,7 @@
                 "qmk-dfu",
                 "qmk-hid",
                 "rp2040",
+                "rp2350",
                 "stm32-dfu",
                 "stm32duino",
                 "tinyuf2",

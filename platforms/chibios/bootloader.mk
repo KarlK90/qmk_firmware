@@ -115,6 +115,10 @@ ifeq ($(strip $(BOOTLOADER)), rp2040)
     OPT_DEFS += -DBOOTLOADER_RP2040
     BOOTLOADER_TYPE = rp2040
 endif
+ifeq ($(strip $(BOOTLOADER)), rp2350)
+    OPT_DEFS += -DBOOTLOADER_RP2040
+    BOOTLOADER_TYPE = rp2040
+endif
 ifeq ($(strip $(BOOTLOADER)), wb32-dfu)
     OPT_DEFS += -DBOOTLOADER_WB32_DFU
     BOOTLOADER_TYPE = wb32_dfu
