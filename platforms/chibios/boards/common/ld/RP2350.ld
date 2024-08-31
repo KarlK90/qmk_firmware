@@ -89,6 +89,15 @@ REGION_ALIAS("BSS_RAM", ram0);
 /* RAM region to be used for the default heap.*/
 REGION_ALIAS("HEAP_RAM", ram0);
 
+SECTIONS
+{
+   .image_header : ALIGN(4) {
+      __image_header_base__ = .;
+      KEEP (*(.image_header))
+      __image_header_end__ = .;
+   } > flash1
+}
+
 /* Generic rules inclusion.*/
 INCLUDE rules_stacks.ld
 INCLUDE rules_stacks_c1.ld

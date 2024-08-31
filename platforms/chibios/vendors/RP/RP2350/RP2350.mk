@@ -11,5 +11,10 @@ RP2350_INC = $(PICOSDKROOT)/src/rp2350/hardware_regs/include \
              $(PICOSDKROOT)/src/rp2350/pico_platform/include \
              $(PLATFORM_RP2350_PATH)
 
+RP2350_SRC =
+
+RP2350_ASM = $(PLATFORM_RP2350_PATH)/image_def.S
+
 PLATFORM_SRC += $(RP2350_SRC)
+PLATFORMASM  += $(RP2350_ASM)
 EXTRAINCDIRS += $(RP2350_INC)
