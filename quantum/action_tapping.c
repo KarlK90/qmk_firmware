@@ -322,53 +322,6 @@ bool process_tapping(keyrecord_t *keyp) {
                     debug_tapping_key();
                     // enqueue
                     return false;
-                }
-                /* Process release event of a key pressed before tapping starts
-                 * Without this unexpected repeating will occur with having fast repeating setting
-                 * https://github.com/tmk/tmk_keyboard/issues/60
-                 *
-                 * NOTE: This workaround causes events to process out of order,
-                 * e.g. in a rolled press of three tap-hold keys like
-                 *
-                 *   "A down, B down, C down, A up, B up, C up"
-                 *
-                 * events are processed as
-                 *
-                 *   "A down, B down, A up, B up, C down, C up"
-                 *
-                 * It seems incorrect to process keyp before the tapping key.
-                 * This workaround is old, from 2013. This might no longer
-                 * be needed for the original problem it was meant to address.
-                 */
-                else if (!event.pressed && !waiting_buffer_typed(event)) {
-                    // Modifier/Layer should be retained till end of this tapping.
-                    action_t action = layer_switch_get_action(event.key);
-                    switch (action.kind.id) {
-                        case ACT_LMODS:
-                        case ACT_RMODS:
-                            if (action.key.mods && !action.key.code) return false;
-                            if (IS_MODIFIER_KEYCODE(action.key.code)) return false;
-                            break;
-                        case ACT_LMODS_TAP:
-                        case ACT_RMODS_TAP:
-                            if (action.key.mods && keyp->tap.count == 0) return false;
-                            if (IS_MODIFIER_KEYCODE(action.key.code)) return false;
-                            break;
-                        case ACT_LAYER_TAP:
-                        case ACT_LAYER_TAP_EXT:
-                            switch (action.layer_tap.code) {
-                                case 0 ...(OP_TAP_TOGGLE - 1):
-                                case OP_ON_OFF:
-                                case OP_OFF_ON:
-                                case OP_SET_CLEAR:
-                                    return false;
-                            }
-                            break;
-                    }
-                    // Release of key should be process immediately.
-                    ac_dprintf("Tapping: release event of a key pressed before tapping\n");
-                    process_record(keyp);
-                    return true;
                 } else {
                     // set interrupted flag when other key pressed during tapping
                     if (event.pressed) {

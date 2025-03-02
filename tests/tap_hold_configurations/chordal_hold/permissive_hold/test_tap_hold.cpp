@@ -316,20 +316,8 @@ TEST_F(ChordalHoldPermissiveHold, three_mod_taps_same_hand_streak_roll) {
     VERIFY_AND_CLEAR(driver);
 
     // Release keys 1, 2, 3.
-    //
-    // NOTE: The correct order of events should be
-    // EXPECT_REPORT(driver, (KC_A, KC_B, KC_C));
-    // EXPECT_REPORT(driver, (KC_B, KC_C));
-    // EXPECT_REPORT(driver, (KC_C));
-    // EXPECT_EMPTY_REPORT(driver);
-    //
-    // However, due to a workaround for https://github.com/tmk/tmk_keyboard/issues/60,
-    // the events are processed out of order, with the first two keys released
-    // before pressing KC_C.
-    EXPECT_REPORT(driver, (KC_A));
-    EXPECT_REPORT(driver, (KC_A, KC_B));
-    EXPECT_REPORT(driver, (KC_B));
-    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (KC_A, KC_B, KC_C));
+    EXPECT_REPORT(driver, (KC_B, KC_C));
     EXPECT_REPORT(driver, (KC_C));
     EXPECT_EMPTY_REPORT(driver);
     mod_tap_key1.release();
@@ -421,18 +409,7 @@ TEST_F(ChordalHoldPermissiveHold, three_mod_taps_same_hand_streak_orders) {
     VERIFY_AND_CLEAR(driver);
 
     // Release keys 2, 3, 1.
-    //
-    // NOTE: The correct order of events should be
-    // EXPECT_REPORT(driver, (KC_A, KC_B, KC_C));
-    // EXPECT_REPORT(driver, (KC_A, KC_C));
-    // EXPECT_REPORT(driver, (KC_A));
-    // EXPECT_EMPTY_REPORT(driver);
-    //
-    // However, due to a workaround for https://github.com/tmk/tmk_keyboard/issues/60,
-    // the events are processed out of order.
-    EXPECT_REPORT(driver, (KC_A));
-    EXPECT_REPORT(driver, (KC_A, KC_B));
-    EXPECT_REPORT(driver, (KC_A));
+    EXPECT_REPORT(driver, (KC_A, KC_B, KC_C));
     EXPECT_REPORT(driver, (KC_A, KC_C));
     EXPECT_REPORT(driver, (KC_A));
     EXPECT_EMPTY_REPORT(driver);
@@ -468,21 +445,10 @@ TEST_F(ChordalHoldPermissiveHold, three_mod_taps_opposite_hands_roll) {
     VERIFY_AND_CLEAR(driver);
 
     // Release keys 1, 2, 3.
-    //
-    // NOTE: The correct order of events should be
-    // EXPECT_REPORT(driver, (KC_A, KC_B));
-    // EXPECT_REPORT(driver, (KC_A, KC_B, KC_C));
-    // EXPECT_REPORT(driver, (KC_B, KC_C));
-    // EXPECT_REPORT(driver, (KC_C));
-    // EXPECT_EMPTY_REPORT(driver);
-    //
-    // However, due to a workaround for https://github.com/tmk/tmk_keyboard/issues/60,
-    // the events are processed out of order, with the first two keys released
-    // before pressing KC_C.
     EXPECT_REPORT(driver, (KC_A));
     EXPECT_REPORT(driver, (KC_A, KC_B));
-    EXPECT_REPORT(driver, (KC_B));
-    EXPECT_EMPTY_REPORT(driver);
+    EXPECT_REPORT(driver, (KC_A, KC_B, KC_C));
+    EXPECT_REPORT(driver, (KC_B, KC_C));
     EXPECT_REPORT(driver, (KC_C));
     EXPECT_EMPTY_REPORT(driver);
     mod_tap_key1.release();
