@@ -3,6 +3,8 @@
 
 #pragma once
 
+#define EECONFIG_KB_DATA_SIZE 224
+
 #define WAIT_US_TIMER GPTD3
 
 #define WS2812_PWM_DRIVER PWMD1

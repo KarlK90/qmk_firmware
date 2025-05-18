@@ -15,10 +15,15 @@ typedef struct {
     adcsample_t max;
 } adc_key_config_t;
 
-static adcsample_t      matrix_raw[AMUX_NUM_CHANNELS][ADC_GRP_NUM_CHANNELS]        = {0};
-static adc_key_config_t matrix_key_config[AMUX_NUM_CHANNELS][ADC_GRP_NUM_CHANNELS] = {0};
+typedef struct {
+    adc_key_config_t key_config[AMUX_NUM_CHANNELS][ADC_GRP_NUM_CHANNELS];
+} PACKED eeprom_config_t;
 
-static void sample_raw_matrix(void);
+_Static_assert(sizeof(eeprom_config_t) == EECONFIG_KB_DATA_SIZE, "Mismatch in keyboard EECONFIG stored data");
+
+static eeprom_config_t config                                              = {0};
+static adcsample_t     matrix_raw[AMUX_NUM_CHANNELS][ADC_GRP_NUM_CHANNELS] = {0};
+static void            sample_raw_matrix(void);
 
 pin_t adc_pins[ADC_GRP_NUM_CHANNELS] = {
     A3, // ADC0 - ADC1_IN3
@@ -72,11 +77,11 @@ void matrix_init_custom(void) {
         sample_raw_matrix();
         for (int i = 0; i < AMUX_NUM_CHANNELS; i++) {
             for (int j = 0; j < ADC_GRP_NUM_CHANNELS; j++) {
-                matrix_key_config[i][j].min += matrix_raw[i][j];
+                config.key_config[i][j].min += matrix_raw[i][j];
 
                 if (s == (SAMPLE_COUNT - 1)) {
-                    matrix_key_config[i][j].min /= SAMPLE_COUNT;
-                    matrix_key_config[i][j].max = matrix_key_config[i][j].min + matrix_key_config[i][j].min / 8;
+                    config.key_config[i][j].min /= SAMPLE_COUNT;
+                    config.key_config[i][j].max = config.key_config[i][j].min + config.key_config[i][j].min / 8;
                 }
             }
         }
@@ -97,7 +102,7 @@ static void sample_raw_matrix(void) {
         if (adcConvert(&ADCD1, &adc_config, matrix_raw[addr], 1) != MSG_OK) {
             printf("ADC conversion failed\n");
             for (int i = 0; i < ADC_GRP_NUM_CHANNELS; i++) {
-                matrix_raw[addr][i] = matrix_key_config[addr][i].min;
+                matrix_raw[addr][i] = config.key_config[addr][i].min;
             }
         }
     }
@@ -117,16 +122,16 @@ bool matrix_scan_custom(matrix_row_t current_matrix[]) {
     for (int i = 0; i < AMUX_NUM_CHANNELS; i++) {
         for (int j = 0; j < ADC_GRP_NUM_CHANNELS; j++) {
             const keypos_t         matrix_pos = adc_matrix_lut[i][j];
-            const adc_key_config_t config     = matrix_key_config[i][j];
+            const adc_key_config_t conf       = config.key_config[i][j];
 
             if (matrix_pos.row == 255 || matrix_pos.col == 255) {
                 continue;
             }
 
             adcsample_t* sample = &matrix_raw[i][j];
-            *sample             = MAX(config.min, *sample);
-            *sample             = MIN(config.max, *sample);
-            *sample             = (*sample - config.min) * ADC_INTERNAL_RESOLUTION / (config.max - config.min);
+            *sample             = MAX(conf.min, *sample);
+            *sample             = MIN(conf.max, *sample);
+            *sample             = (*sample - conf.min) * ADC_INTERNAL_RESOLUTION / (conf.max - conf.min);
 
             matrix_row_t old = current_matrix[matrix_pos.row];
             if (*sample > (ADC_INTERNAL_RESOLUTION / 4)) {
